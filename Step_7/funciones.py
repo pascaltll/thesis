@@ -2,7 +2,7 @@ import re
 import razdel
 import pandas as pd
 from sklearn.model_selection import train_test_split
-import torch
+import torch  # Importar torchfrom torch.utils.data import Dataset, DataLoader
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizer
 from isanlp.pipeline_common import PipelineCommon
@@ -18,6 +18,41 @@ from razdel import sentenize
 import nltk
 from sklearn.feature_extraction.text import CountVectorizer
 nltk.download('punkt')
+
+
+class TrainingConfig:
+    def __init__(self,
+                 model_name='DeepPavlov/rubert-base-cased',
+                 max_length=128,
+                 batch_size=64,
+                 epochs=3,
+                 learning_rate=2e-5,
+                 num_repeats=6,
+                 test_size=0.2,
+                 threshold=0.5):
+        """
+        Configuración para el entrenamiento del modelo.
+        
+        Args:
+            model_name (str): Nombre del modelo preentrenado
+            max_length (int): Longitud máxima de las secuencias
+            batch_size (int): Tamaño del batch
+            epochs (int): Número de épocas
+            learning_rate (float): Tasa de aprendizaje
+            num_repeats (int): Número de repeticiones con diferentes seeds
+            test_size (float): Proporción del conjunto de prueba
+            threshold (float): Umbral de similitud
+        """
+        self.model_name = model_name
+        self.max_length = max_length
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.learning_rate = learning_rate
+        self.num_repeats = num_repeats
+        self.test_size = test_size
+        self.threshold = threshold
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.tokenizer = BertTokenizer.from_pretrained(model_name)
 
 
 def cargar_datos(archivo, etiqueta):
@@ -177,7 +212,7 @@ class SentenceSplitterAndCleaner:
             'datos_procesados': datos_procesados,
             'original_datos_procesados': original_datos_procesados
         }
-    
+
 class DataProcessor:
     #def __init__(self, tokenizer, max_length, random_state, test_size=0.2):
     def __init__(self,
@@ -255,8 +290,8 @@ class DataProcessor:
             'test_encodings': test_encodings,
             'test_labels': test_labels
         }  
-    
-    
+
+
 class TextDataset(Dataset):
     def __init__(self, encodings, labels):
         self.encodings = encodings
@@ -280,7 +315,7 @@ class DatasetCreator:
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
         return {'train_loader': train_loader, 'test_loader': test_loader}
-    
+
 def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3):
     for epoch in range(epochs):
         model.train()
@@ -327,3 +362,88 @@ def display_results(results):
     plt.xlabel('Predicción')
     plt.ylabel('Real')
     plt.show()
+
+
+def train_and_evaluate_dataset(path1, path2, config, dataset_name):
+    """
+    Entrena y evalúa el modelo para un conjunto de datos específico.
+    
+    Args:
+        path1 (str): Ruta al archivo del primer género
+        path2 (str): Ruta al archivo del segundo género
+        config (TrainingConfig): Configuración de entrenamiento
+        dataset_name (str): Nombre del conjunto de datos
+    
+    Returns:
+        dict: Resultados con accuracy promedio y desviación estándar
+    """
+    seeds = list(range(config.num_repeats))
+    accuracies = []
+    
+    print(f"\nProcesando conjunto de datos: {dataset_name}")
+    
+    for seed in seeds:
+        print(f"\nRepetición con semilla {seed}")
+        
+        # Crear pipeline
+        ppl = PipelineCommon([
+            (DataLoader_raw(path1, path2), 
+             [], 
+             {'datos_raw': 'datos_raw',
+              'original_datos_raw': 'original_datos_raw'}),
+            (SentenceSplitterAndCleaner(config.tokenizer), 
+             ['datos_raw', 'original_datos_raw'], 
+             {'datos_procesados': 'datos_procesados',
+              'original_datos_procesados': 'original_datos_procesados'}),
+            (DataProcessor(config.tokenizer,
+                          config.max_length,
+                          seed,
+                          name=dataset_name,
+                          threshold=config.threshold), 
+             ['datos_procesados', 'original_datos_procesados'], 
+             {'train_encodings': 'train_encodings', 
+              'train_labels': 'train_labels',
+              'test_encodings': 'test_encodings', 
+              'test_labels': 'test_labels'}),
+            (DatasetCreator(batch_size=config.batch_size), 
+             ['train_encodings', 'train_labels', 
+              'test_encodings', 'test_labels'], 
+             {'train_loader': 'train_loader', 
+              'test_loader': 'test_loader'})
+        ])
+        
+        # Ejecutar pipeline
+        result = ppl()
+        train_loader = result['train_loader']
+        test_loader = result['test_loader']
+        
+        # Configurar modelo
+        model = BertForSequenceClassification.from_pretrained(
+            config.model_name,
+            num_labels=2).to(config.device)
+        
+        optimizer = AdamW(model.parameters(), lr=config.learning_rate)
+        loss_fn = torch.nn.CrossEntropyLoss()
+        
+        # Entrenar y evaluar
+        train_model(model, train_loader, optimizer, loss_fn, 
+                   config.device, epochs=config.epochs)
+        results = evaluate_model(model, test_loader, config.device)
+        
+        accuracy = results['accuracy']
+        accuracies.append(accuracy)
+        print(f"Accuracy con semilla {seed}: {accuracy:.4f}")
+    
+    # Calcular estadísticas
+    avg_accuracy = np.mean(accuracies)
+    std_accuracy = np.std(accuracies)
+    print(f"\nAccuracy promedio para {dataset_name}: "
+          f"{avg_accuracy:.4f} ± {std_accuracy:.4f}")
+    
+    return {
+        'dataset_name': dataset_name,
+        'avg_accuracy': avg_accuracy,
+        'std_accuracy': std_accuracy,
+        'accuracies': accuracies
+    }
+
