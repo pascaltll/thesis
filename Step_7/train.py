@@ -1,43 +1,6 @@
----
-jupyter:
-  jupytext:
-    formats: ipynb,md
-    text_representation:
-      extension: .md
-      format_name: markdown
-      format_version: '1.3'
-      jupytext_version: 1.13.8
-  kernelspec:
-    display_name: Mi Entorno (Python 3.9)
-    language: python
-    name: mi_entorno
----
-
-```python
-!tree ../dataset
-```
-
-```python
-ls
-```
-
-```python
-#     ├── 1а_ без сокращений.txt
-#     ├── 1б_Изъяты лексемы с частотой выше 100.txt
-#     ├── 1в_Изъяты лексемы с частотой выше 49.txt
-#     ├── 1г_Изъяты лексемы с частотой выше 29.txt
-#     ├── 1д_Изъяты лексемы с частотой выше 9.txt
-#     ├── 1е_Изъяты лексемы с частотой выше 5.txt
-#     ├── 1ё_Изъяты лексемы с частотой выше 3.txt
-#     ├── 2а_ без сокращений.txt
-#     ├── 2б_Изъяты лексемы с частотой выше 100.txt
-#     ├── 2в_Изъяты лексемы с частотой выше 49.txt
-#     ├── 2г_Изъяты лексемы с частотой выше 29.txt
-#     ├── 2д_Изъяты лексемы с частотой выше 9.txt
-#     ├── 2е_Изъяты лексемы с частотой выше 5.txt
-#     └── 2ё_Изъяты лексемы с частотой выше 3.txt
 import funciones
 from utils import train_wrapper
+
 import warnings
 import os
 # Suprimir warnings específicos
@@ -66,7 +29,7 @@ def main():
     config = funciones.TrainingConfig(
         model_name='DeepPavlov/rubert-base-cased',
         max_length=128,
-        batch_size=128,
+        batch_size=64,
         epochs=3,
         learning_rate=2e-5,
         num_repeats=6,
@@ -126,10 +89,16 @@ def main():
 
     args = [(dataset, config) for dataset in datasets]
  
-    results = []
-    for arg in tqdm(args, desc="Entrenando secuencial"):
-        result = train_wrapper(arg)
-        results.append(result)
+    # Procesar datasets en paralelo
+    result = []
+    with open(os.devnull, 'w') as f, redirect_stderr(f):
+        with ProcessPoolExecutor() as executor:
+            result = list(tqdm(
+                executor.map(train_wrapper, args),
+                total = len(datasets),
+                desc = "train in parallel"
+                ))
+            
             
     
     # Mostrar resumen final
@@ -141,18 +110,3 @@ def main():
         
 if __name__ == "__main__":
     main()
-```
-
-```python
-import torch
-num_gpus = torch.cuda.device_count() 
-print(num_gpus)
-```
-
-```python
-#batch_size=128
-```
-
-```python
-
-```

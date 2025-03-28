@@ -18,11 +18,13 @@ from razdel import sentenize
 import nltk
 from sklearn.feature_extraction.text import CountVectorizer
 nltk.download('punkt')
+from transformers import logging
+logging.set_verbosity_error()
 
 
 class TrainingConfig:
     def __init__(self,
-                 model_name='DeepPavlov/rubert-base-cased',
+                 model_name,
                  max_length=128,
                  batch_size=64,
                  epochs=3,
@@ -52,7 +54,7 @@ class TrainingConfig:
         self.test_size = test_size
         self.threshold = threshold
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = BertTokenizer.from_pretrained(model_name)
+        self.tokenizer = BertTokenizer.from_pretrained(model_name)#creo que hay que usar el tokenizer de ruso
 
 
 def cargar_datos(archivo, etiqueta):
@@ -76,7 +78,7 @@ def calcular_similitud_mayoria_optimizado(textos1, textos2, threshold):
             Matriz booleana [len(textos1), len(textos2)] indicando similitudes.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Usando dispositivo: {device}")
+    #print(f"Usando dispositivo: {device}")
 
     # Preprocesar todos los textos en batch
     textos1_preprocesados = [' '.join(tokenizar_fuction(t)) for t in textos1]
@@ -250,10 +252,10 @@ class DataProcessor:
         interseccion = similitudes.any(dim=1)  # True si hay intersección con algún train_text
         mask = ~interseccion.cpu().numpy()
         nuevo_test = [(texto, etiqueta) for texto, etiqueta, keep in zip(original_texts, original_labels, mask) if keep]
-        print("train_data:", len(train_data))
-        print("test_data:", len(test_data))
-        print("new_test:", len(nuevo_test))
-        print("teorical len:", len(original_texts) - len(train_data))
+        #print("train_data:", len(train_data))
+        #print("test_data:", len(test_data))
+        #print("new_test:", len(nuevo_test))
+        #print("teorical len:", len(original_texts) - len(train_data))
 
         
          
@@ -319,8 +321,9 @@ class DatasetCreator:
 def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3):
     for epoch in range(epochs):
         model.train()
-        loop = tqdm(train_loader, desc=f'Epoch {epoch + 1}/{epochs}')
-        for batch in loop:
+        #loop = tqdm(train_loader, desc=f'Epoch {epoch + 1}/{epochs}')
+        for batch in train_loader:
+        #for batch in loop:
             optimizer.zero_grad()
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
@@ -329,7 +332,7 @@ def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3):
             loss = loss_fn(outputs.logits, labels)
             loss.backward()
             optimizer.step()
-            loop.set_postfix(loss=loss.item())
+            #loop.set_postfix(loss=loss.item())
         torch.cuda.empty_cache()#libera memroria de la gpu
         gc.collect()#limpa la cpu
 
@@ -432,13 +435,12 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name):
         
         accuracy = results['accuracy']
         accuracies.append(accuracy)
-        print(f"Accuracy con semilla {seed}: {accuracy:.4f}")
+        #print(f"Accuracy con semilla {seed}: {accuracy:.4f}")
     
     # Calcular estadísticas
     avg_accuracy = np.mean(accuracies)
     std_accuracy = np.std(accuracies)
-    print(f"\nAccuracy promedio para {dataset_name}: "
-          f"{avg_accuracy:.4f} ± {std_accuracy:.4f}")
+    #print(f"\nAccuracy promedio para {dataset_name}: " f"{avg_accuracy:.4f} ± {std_accuracy:.4f}")
     
     return {
         'dataset_name': dataset_name,
@@ -446,4 +448,6 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name):
         'std_accuracy': std_accuracy,
         'accuracies': accuracies
     }
+
+
 
