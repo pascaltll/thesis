@@ -19,6 +19,7 @@ import nltk
 from sklearn.feature_extraction.text import CountVectorizer
 nltk.download('punkt')
 from transformers import logging
+from transformers import AutoTokenizer
 logging.set_verbosity_error()
 
 
@@ -54,7 +55,8 @@ class TrainingConfig:
         self.test_size = test_size
         self.threshold = threshold
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = BertTokenizer.from_pretrained(model_name)#creo que hay que usar el tokenizer de ruso
+        #self.tokenizer = BertTokenizer.from_pretrained(model_name)#creo que hay que usar el tokenizer de ruso
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)  # Ahora debería funcionar
 
 
 def cargar_datos(archivo, etiqueta):
@@ -222,7 +224,7 @@ class DataProcessor:
                  max_length,
                  random_state,
                  test_size=0.2,
-                 name='сокращение по частотности',
+                 name='data_set_name',
                  threshold = 0.5
                 ):
     
@@ -260,11 +262,11 @@ class DataProcessor:
         
          
         if self.random_state == 0:
-            train_data.to_csv(f'сокращение по частотности/train_{self.name}', index=False)
+            train_data.to_csv(f'сокращение по частотности/train_{self.name}.csv', index=False)
             print(f"train_{self.name}.csv")
             nuevo_test_df = pd.DataFrame(nuevo_test, columns=["text", "label"])
             
-            nuevo_test_df.to_csv(f'сокращение по частотности/test_{self.name}', index=False)
+            nuevo_test_df.to_csv(f'сокращение по частотности/test_{self.name}.csv', index=False)
             print(f"test_{self.name}.csv")
         
         #no se a niandido el nuevo test
@@ -336,6 +338,9 @@ def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3):
         torch.cuda.empty_cache()#libera memroria de la gpu
         gc.collect()#limpa la cpu
 
+# +
+
+
 def evaluate_model(model, test_loader, device):
     model.eval()
     all_preds = []
@@ -353,6 +358,9 @@ def evaluate_model(model, test_loader, device):
     report = classification_report(all_labels, all_preds, target_names=["Género 1", "Género 2"])
     conf_matrix = confusion_matrix(all_labels, all_preds)
     return {"accuracy": accuracy, "report": report, "conf_matrix": conf_matrix}
+
+
+# -
 
 def display_results(results):
     print(f'Precisión en el conjunto de prueba: {results["accuracy"]:.2%}')
@@ -383,10 +391,10 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name):
     seeds = list(range(config.num_repeats))
     accuracies = []
     
-    print(f"\nProcesando conjunto de datos: {dataset_name}")
+    #print(f"\nProcesando conjunto de datos: {dataset_name}")
     
     for seed in seeds:
-        print(f"\nRepetición con semilla {seed}")
+        #print(f"\nRepetición con semilla {seed}")
         
         # Crear pipeline
         ppl = PipelineCommon([
