@@ -360,20 +360,46 @@ def evaluate_model(model, test_loader, device):
     return {"accuracy": accuracy, "report": report, "conf_matrix": conf_matrix}
 
 
+# +
+def display_results():
+    print("hola")
+#     print("\n Resultados de todos los experimentos:")
+#     for result in results:
+#         print(f"{result['dataset_name']}: "
+#                 f"{result['avg_accuracy']:.4f} ± {result['std_accuracy']:.4f}")
+
+#         # Preparar datos para el gráfico
+#     dataset_names = [d['name'] for d in datasets]  # Nombres base de datasets
+#     model_names = [f"{i['name']}" for _,i in enumerate(models)] # Nombres de modelos como en results
+
+#     # Matriz de accuracies
+#     accuracies = np.zeros((len(dataset_names), len(model_names)))
+
+#     for i, dataset_name in enumerate(dataset_names):
+#         for j, model_name in enumerate(model_names):
+#             for result in results:
+#                 if dataset_name in result['dataset_name'] and model_name in result['dataset_name']:
+#                     accuracies[i, j] = result['avg_accuracy']
+#                     break # Importante: salir del bucle interno una vez encontrada la precisión
+
+#     # Graficar
+#     fig, ax = plt.subplots(figsize=(12, 6))
+#     bar_width = 0.15
+#     index = np.arange(len(dataset_names))
+
+#     for i, model_name in enumerate(model_names):
+#         plt.bar(index + i * bar_width, accuracies[:, i], bar_width, label=model_name)
+
+#     plt.xlabel('Dataset')
+#     plt.ylabel('Precisión Promedio')
+#     plt.title('Rendimiento de Modelos por Dataset')
+#     plt.xticks(index + bar_width * (len(model_names) - 1) / 2, dataset_names, rotation=45)
+#     plt.legend()
+#     plt.tight_layout()
+#     plt.show()
+
+
 # -
-
-def display_results(results):
-    print(f'Precisión en el conjunto de prueba: {results["accuracy"]:.2%}')
-    print("\nReporte de clasificación:\n", results["report"])
-    plt.figure(figsize=(6, 4))
-    sns.heatmap(results["conf_matrix"], annot=True, fmt='d', cmap='Blues', 
-                xticklabels=["Género 1", "Género 2"], 
-                yticklabels=["Género 1", "Género 2"])
-    plt.title('Matriz de Confusión')
-    plt.xlabel('Predicción')
-    plt.ylabel('Real')
-    plt.show()
-
 
 def train_and_evaluate_dataset(path1, path2, config, dataset_name):
     """
