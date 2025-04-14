@@ -1,0 +1,24 @@
+{"time":"2025-04-11T16:18:30.864009398Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_161829-yx2jxpvr/logs/debug-core.log"}
+{"time":"2025-04-11T16:18:31.157553836Z","level":"INFO","msg":"created new stream","id":"yx2jxpvr"}
+{"time":"2025-04-11T16:18:31.157595785Z","level":"INFO","msg":"stream: started","id":"yx2jxpvr"}
+{"time":"2025-04-11T16:18:31.157614651Z","level":"INFO","msg":"writer: Do: started","stream_id":"yx2jxpvr"}
+{"time":"2025-04-11T16:18:31.157659976Z","level":"INFO","msg":"sender: started","stream_id":"yx2jxpvr"}
+{"time":"2025-04-11T16:18:31.157631923Z","level":"INFO","msg":"handler: started","stream_id":"yx2jxpvr"}
+{"time":"2025-04-11T16:18:31.418834692Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-11T16:19:50.01709145Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T16:19:50.025042286Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T16:19:50.908143399Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T16:19:50.913730441Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T16:19:50.914621554Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T16:19:50.918358411Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T16:19:50.927483314Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T16:19:50.931864679Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T16:19:51.683814424Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-11T16:19:51.683885719Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-11T16:19:52.643954881Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading artifact run-yx2jxpvr-Model_Comparison_Table","runtime_seconds":1.365825248},{"desc":"uploading output.log","runtime_seconds":0.54248603,"progress":"1.5KB/1.5KB"},{"desc":"uploading config.yaml","runtime_seconds":0.386761985,"progress":"1.7KB/1.7KB"}],"total_operations":3}}
+{"time":"2025-04-11T16:19:53.525562604Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-11T16:19:53.788835362Z","level":"INFO","msg":"stream: closing","id":"yx2jxpvr"}
+{"time":"2025-04-11T16:19:53.788870749Z","level":"INFO","msg":"handler: closed","stream_id":"yx2jxpvr"}
+{"time":"2025-04-11T16:19:53.788895074Z","level":"INFO","msg":"sender: closed","stream_id":"yx2jxpvr"}
+{"time":"2025-04-11T16:19:53.788886458Z","level":"INFO","msg":"writer: Close: closed","stream_id":"yx2jxpvr"}
+{"time":"2025-04-11T16:19:53.788952894Z","level":"INFO","msg":"stream: closed","id":"yx2jxpvr"}

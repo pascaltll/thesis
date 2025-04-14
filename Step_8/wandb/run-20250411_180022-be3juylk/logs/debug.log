@@ -1,0 +1,31 @@
+2025-04-11 18:00:22,632 INFO    MainThread:94662 [wandb_init.py:setup_run_log_directory():662] Logging user logs to /workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_180022-be3juylk/logs/debug.log
+2025-04-11 18:00:22,632 INFO    MainThread:94662 [wandb_init.py:setup_run_log_directory():663] Logging internal logs to /workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_180022-be3juylk/logs/debug-internal.log
+2025-04-11 18:00:22,632 INFO    MainThread:94662 [wandb_init.py:monkeypatch_ipython():581] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x7f1823f5be20>
+2025-04-11 18:00:22,632 INFO    MainThread:94662 [wandb_init.py:init():781] calling init triggers
+2025-04-11 18:00:22,632 INFO    MainThread:94662 [wandb_init.py:init():786] wandb.init called with sweep_config: {}
+config: {'model': 'distilbert-base-multilingual-cased', 'dataset': 'Изъяты лексемы с частотой выше 9', 'freq': 9, 'model_name': 'distilbert-base-multilingual-cased', 'max_length': 45, 'batch_size': 128, 'epochs': 5, 'learning_rate': 4e-05, 'num_repeats': 6, 'test_size': 0.2, 'threshold': 0.5, 'device': device(type='cuda'), 'tokenizer': DistilBertTokenizerFast(name_or_path='distilbert-base-multilingual-cased', vocab_size=119547, model_max_length=512, is_fast=True, padding_side='right', truncation_side='right', special_tokens={'unk_token': '[UNK]', 'sep_token': '[SEP]', 'pad_token': '[PAD]', 'cls_token': '[CLS]', 'mask_token': '[MASK]'}, clean_up_tokenization_spaces=True), '_wandb': {}}
+2025-04-11 18:00:22,632 INFO    MainThread:94662 [wandb_init.py:init():798] finishing previous run: mec5cscv
+2025-04-11 18:00:24,275 INFO    MainThread:94662 [wandb_init.py:init():809] starting backend
+2025-04-11 18:00:24,275 INFO    MainThread:94662 [wandb_init.py:init():813] sending inform_init request
+2025-04-11 18:00:24,277 INFO    MainThread:94662 [backend.py:_multiprocessing_setup():101] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2025-04-11 18:00:24,278 INFO    MainThread:94662 [wandb_init.py:init():823] backend started and connected
+2025-04-11 18:00:24,285 INFO    MainThread:94662 [wandb_run.py:_label_probe_notebook():1267] probe notebook
+2025-04-11 18:00:24,285 INFO    MainThread:94662 [wandb_run.py:_label_probe_notebook():1277] Unable to probe notebook: 'NoneType' object has no attribute 'get'
+2025-04-11 18:00:24,285 INFO    MainThread:94662 [wandb_init.py:init():915] updated telemetry
+2025-04-11 18:00:24,423 INFO    MainThread:94662 [wandb_init.py:init():939] communicating run to backend with 90.0 second timeout
+2025-04-11 18:00:24,891 INFO    MainThread:94662 [wandb_init.py:init():1014] starting run threads in backend
+2025-04-11 18:00:25,078 INFO    MainThread:94662 [wandb_run.py:_console_start():2454] atexit reg
+2025-04-11 18:00:25,079 INFO    MainThread:94662 [wandb_run.py:_redirect():2306] redirect: wrap_raw
+2025-04-11 18:00:25,079 INFO    MainThread:94662 [wandb_run.py:_redirect():2371] Wrapping output streams.
+2025-04-11 18:00:25,079 INFO    MainThread:94662 [wandb_run.py:_redirect():2394] Redirects installed.
+2025-04-11 18:00:25,081 INFO    MainThread:94662 [wandb_init.py:init():1056] run started, returning control to user process
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [wandb_run.py:_finish():2189] finishing run tuesta-lx-moscow-institute-of-physics-and-technology/model-comparison/be3juylk
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [jupyter.py:save_history():460] not saving jupyter history
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [jupyter.py:save_ipynb():384] not saving jupyter notebook
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [wandb_init.py:_jupyter_teardown():563] cleaning up jupyter logic
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [wandb_run.py:_atexit_cleanup():2419] got exitcode: 0
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [wandb_run.py:_restore():2401] restore
+2025-04-11 18:01:23,464 INFO    MainThread:94662 [wandb_run.py:_restore():2407] restore done
+2025-04-11 18:01:25,091 INFO    MainThread:94662 [wandb_run.py:_footer_history_summary_info():4064] rendering history
+2025-04-11 18:01:25,091 INFO    MainThread:94662 [wandb_run.py:_footer_history_summary_info():4096] rendering summary
+2025-04-11 18:01:25,093 INFO    MainThread:94662 [wandb_run.py:_footer_sync_info():4025] logging synced files

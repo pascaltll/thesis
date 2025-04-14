@@ -1,0 +1,16 @@
+{"time":"2025-04-14T00:08:00.477523528Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250414_000800-tusi6ffh/logs/debug-core.log"}
+{"time":"2025-04-14T00:08:00.788806114Z","level":"INFO","msg":"created new stream","id":"tusi6ffh"}
+{"time":"2025-04-14T00:08:00.788851479Z","level":"INFO","msg":"stream: started","id":"tusi6ffh"}
+{"time":"2025-04-14T00:08:00.788863332Z","level":"INFO","msg":"writer: Do: started","stream_id":"tusi6ffh"}
+{"time":"2025-04-14T00:08:00.788877699Z","level":"INFO","msg":"sender: started","stream_id":"tusi6ffh"}
+{"time":"2025-04-14T00:08:00.788891535Z","level":"INFO","msg":"handler: started","stream_id":"tusi6ffh"}
+{"time":"2025-04-14T00:08:01.046613095Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-14T00:09:36.797562652Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-14T00:09:36.797656269Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-14T00:09:37.803848435Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.588723743,"progress":"169B/169B"},{"desc":"uploading config.yaml","runtime_seconds":0.388844544,"progress":"1.7KB/1.7KB"}],"total_operations":2}}
+{"time":"2025-04-14T00:09:38.101636878Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-14T00:09:38.34516341Z","level":"INFO","msg":"stream: closing","id":"tusi6ffh"}
+{"time":"2025-04-14T00:09:38.345202935Z","level":"INFO","msg":"handler: closed","stream_id":"tusi6ffh"}
+{"time":"2025-04-14T00:09:38.345230357Z","level":"INFO","msg":"sender: closed","stream_id":"tusi6ffh"}
+{"time":"2025-04-14T00:09:38.345225638Z","level":"INFO","msg":"writer: Close: closed","stream_id":"tusi6ffh"}
+{"time":"2025-04-14T00:09:38.345299227Z","level":"INFO","msg":"stream: closed","id":"tusi6ffh"}

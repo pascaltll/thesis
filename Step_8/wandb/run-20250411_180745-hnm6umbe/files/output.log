@@ -1,0 +1,10 @@
+train_Изъяты лексемы с частотой выше 100 - distilbert-base-multilingual.csv
+test_Изъяты лексемы с частотой выше 100 - distilbert-base-multilingual.csv
+train_Изъяты лексемы с частотой выше 49 - distilbert-base-multilingual.csv
+test_Изъяты лексемы с частотой выше 49 - distilbert-base-multilingual.csv
+train_Изъяты лексемы с частотой выше 29 - distilbert-base-multilingual.csv
+test_Изъяты лексемы с частотой выше 29 - distilbert-base-multilingual.csv
+train_Изъяты лексемы с частотой выше 9 - distilbert-base-multilingual.csv
+test_Изъяты лексемы с частотой выше 9 - distilbert-base-multilingual.csv
+train_Изъяты лексемы с частотой выше 5 - distilbert-base-multilingual.csv
+test_Изъяты лексемы с частотой выше 5 - distilbert-base-multilingual.csv

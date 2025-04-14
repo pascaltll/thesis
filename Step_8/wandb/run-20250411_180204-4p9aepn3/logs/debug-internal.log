@@ -1,0 +1,16 @@
+{"time":"2025-04-11T18:02:06.480240643Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_180204-4p9aepn3/logs/debug-core.log"}
+{"time":"2025-04-11T18:02:06.783314129Z","level":"INFO","msg":"created new stream","id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:06.783359796Z","level":"INFO","msg":"stream: started","id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:06.783403859Z","level":"INFO","msg":"writer: Do: started","stream_id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:06.783422514Z","level":"INFO","msg":"handler: started","stream_id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:06.783438384Z","level":"INFO","msg":"sender: started","stream_id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:07.087161188Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-11T18:02:56.545204077Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-11T18:02:56.545273558Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-11T18:02:57.548163226Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.549396355,"progress":"203B/203B"},{"desc":"uploading wandb-summary.json","runtime_seconds":0.549383501,"progress":"165B/165B"},{"desc":"uploading config.yaml","runtime_seconds":0.344832359,"progress":"1.6KB/1.6KB"}],"total_operations":3}}
+{"time":"2025-04-11T18:02:57.90182306Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-11T18:02:58.150955683Z","level":"INFO","msg":"stream: closing","id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:58.150987172Z","level":"INFO","msg":"handler: closed","stream_id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:58.151002581Z","level":"INFO","msg":"writer: Close: closed","stream_id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:58.151048428Z","level":"INFO","msg":"sender: closed","stream_id":"4p9aepn3"}
+{"time":"2025-04-11T18:02:58.151124582Z","level":"INFO","msg":"stream: closed","id":"4p9aepn3"}
