@@ -1,0 +1,3 @@
+train_1.Первый жанр исходная выборка - gpt2.csv
+test_1.Первый жанр исходная выборка - gpt2.csv
+Using pad_token, but it is not set yet.

@@ -18,3 +18,13 @@ config: {'model': 'distilbert-base-multilingual-cased', 'dataset': 'Изъяты
 2025-04-14 02:07:51,512 INFO    MainThread:99429 [wandb_run.py:_redirect():2371] Wrapping output streams.
 2025-04-14 02:07:51,512 INFO    MainThread:99429 [wandb_run.py:_redirect():2394] Redirects installed.
 2025-04-14 02:07:51,514 INFO    MainThread:99429 [wandb_init.py:init():1056] run started, returning control to user process
+2025-04-14 02:08:55,368 INFO    MainThread:99429 [wandb_run.py:_finish():2189] finishing run tuesta-lx-moscow-institute-of-physics-and-technology/model-comparison/qv88vryz
+2025-04-14 02:08:55,369 INFO    MainThread:99429 [jupyter.py:save_history():460] not saving jupyter history
+2025-04-14 02:08:55,369 INFO    MainThread:99429 [jupyter.py:save_ipynb():384] not saving jupyter notebook
+2025-04-14 02:08:55,369 INFO    MainThread:99429 [wandb_init.py:_jupyter_teardown():563] cleaning up jupyter logic
+2025-04-14 02:08:55,369 INFO    MainThread:99429 [wandb_run.py:_atexit_cleanup():2419] got exitcode: 0
+2025-04-14 02:08:55,369 INFO    MainThread:99429 [wandb_run.py:_restore():2401] restore
+2025-04-14 02:08:55,369 INFO    MainThread:99429 [wandb_run.py:_restore():2407] restore done
+2025-04-14 02:08:56,871 INFO    MainThread:99429 [wandb_run.py:_footer_history_summary_info():4064] rendering history
+2025-04-14 02:08:56,871 INFO    MainThread:99429 [wandb_run.py:_footer_history_summary_info():4096] rendering summary
+2025-04-14 02:08:56,873 INFO    MainThread:99429 [wandb_run.py:_footer_sync_info():4025] logging synced files

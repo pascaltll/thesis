@@ -1,0 +1,29 @@
+{
+  "os": "Linux-6.1.0-18-amd64-x86_64-with-glibc2.10",
+  "python": "CPython 3.8.13",
+  "startedAt": "2025-04-14T21:55:48.136957Z",
+  "program": "<python with no main file>",
+  "git": {
+    "remote": "https://pascaltll:@github.com/pascaltll/thesis.git",
+    "commit": "06a2c7b20dcd18919f1f0d890678f4e70ba90160"
+  },
+  "email": "tuesta.lx@phystech.edu",
+  "root": "/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8",
+  "host": "691eae8a9e72",
+  "executable": "/workspace/notebooks/Carlos/fine_tunig_project/mi_entorno/bin/python",
+  "cpu_count": 12,
+  "cpu_count_logical": 24,
+  "disk": {
+    "/": {
+      "total": "3740488695808",
+      "used": "3360907419648"
+    }
+  },
+  "memory": {
+    "total": "134914154496"
+  },
+  "cpu": {
+    "count": 12,
+    "countLogical": 24
+  }
+}

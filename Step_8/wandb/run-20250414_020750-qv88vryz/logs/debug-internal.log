@@ -5,3 +5,12 @@
 {"time":"2025-04-14T02:07:51.065779419Z","level":"INFO","msg":"sender: started","stream_id":"qv88vryz"}
 {"time":"2025-04-14T02:07:51.065787925Z","level":"INFO","msg":"handler: started","stream_id":"qv88vryz"}
 {"time":"2025-04-14T02:07:51.330546499Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-14T02:08:55.3701128Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-14T02:08:55.370194354Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-14T02:08:56.373778518Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.618719247,"progress":"199B/199B"},{"desc":"uploading config.yaml","runtime_seconds":0.448287757,"progress":"1.7KB/1.7KB"}],"total_operations":2}}
+{"time":"2025-04-14T02:08:56.62682426Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-14T02:08:56.877476969Z","level":"INFO","msg":"stream: closing","id":"qv88vryz"}
+{"time":"2025-04-14T02:08:56.877512656Z","level":"INFO","msg":"handler: closed","stream_id":"qv88vryz"}
+{"time":"2025-04-14T02:08:56.877542983Z","level":"INFO","msg":"sender: closed","stream_id":"qv88vryz"}
+{"time":"2025-04-14T02:08:56.877535389Z","level":"INFO","msg":"writer: Close: closed","stream_id":"qv88vryz"}
+{"time":"2025-04-14T02:08:56.877604309Z","level":"INFO","msg":"stream: closed","id":"qv88vryz"}

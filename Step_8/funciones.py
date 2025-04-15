@@ -9,6 +9,7 @@ from transformers import BertTokenizer
 from isanlp.pipeline_common import PipelineCommon
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW
+from transformers import AutoModelForCausalLM, AutoTokenizer, BertForSequenceClassification, pipeline
 from tqdm import tqdm
 import gc
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix, classification_report
@@ -26,6 +27,7 @@ logging.set_verbosity_error()
 import matplotlib.pyplot as plt
 import numpy as np
 
+# import wandb
 
 # -
 
@@ -61,10 +63,14 @@ class TrainingConfig:
         self.num_repeats = num_repeats
         self.test_size = test_size
         self.threshold = threshold
+        self.model_type = model_type
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         #self.tokenizer = BertTokenizer.from_pretrained(model_name)#creo que hay que usar el tokenizer de ruso
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)  # Ahora debería funcionar
-        self.model_type = model_type
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name) 
+        if self.model_type == 'gpt':
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.padding_side = 'left'
+
 
 
 def cargar_datos(archivo, etiqueta):
@@ -243,44 +249,108 @@ class DataProcessor:
         self.name = name
         self.threshold = threshold
         self.model_type = model_type
+        
+        self.classification_prompt = "Классифицируйте этот текст:\n{text}\nКатегория:"
+        self.class0_response = " жанр0"  
+        self.class1_response = " жанр1"
+        
+    def _prepare_gpt_data(self, texts, labels):
+        """Prepara datos para modelos GPT con prompts"""
+        processed_texts = []
+        processed_labels = []
+        
+        for text, label in zip(texts, labels):
+            prompt = self.classification_prompt.format(text=text)
+            response = self.class0_response if label == 0 else self.class1_response
+            full_text = prompt + response
+            
+            processed_texts.append(full_text)
+            processed_labels.append(response.strip())
+            
+        return processed_texts, processed_labels
     
     def __call__(self, datos_procesados, original_datos_procesados):
-        #datos_procesados = data['datos_procesados']
         df = pd.DataFrame(datos_procesados, columns=["text", "label"])
         train_data, test_data = train_test_split(df,
                                                  test_size=self.test_size,
                                                  random_state=self.random_state)
-        #generar un nuevo test data
-        #print("test_data:", len(test_data))
-        train_texts = train_data["text"].tolist()
-        original_texts = [oracion for oracion, _ in original_datos_procesados]
-        original_labels = [etiqueta for _, etiqueta in original_datos_procesados]
         
-        similitudes = calcular_similitud_mayoria_optimizado(original_texts,
-                                                            train_texts,
-                                                            self.threshold)  # [len(original), len(train)]
         
-        interseccion = similitudes.any(dim=1)  # True si hay intersección con algún train_text
-        mask = ~interseccion.cpu().numpy()
-        nuevo_test = [(texto, etiqueta) for texto, etiqueta, keep in zip(original_texts, original_labels, mask) if keep]
-        #print("train_data:", len(train_data))
-        #print("test_data:", len(test_data))
-        #print("new_test:", len(nuevo_test))
-        #print("teorical len:", len(original_texts) - len(train_data))
+        
+        if self.model_type == 'gpt':
+            train_texts, train_labels = self._prepare_gpt_data(
+                train_data["text"].tolist(),
+                train_data["label"].tolist()
+            )
+        
+        
+            # Tokenización para GPT
+            train_encodings = self.tokenizer(
+                train_texts,
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_length,
+                return_tensors="pt"
+            )
+            # Crear máscara de etiquetas para GPT
+            input_ids = train_encodings.input_ids
+            labels = torch.full_like(input_ids, -100)  # Ignorar todos los tokens
 
         
-         
-        if self.random_state == 0:
-            train_data.to_csv(f'сокращение по частотности/train_{self.name}.csv', index=False)
-            print(f"train_{self.name}.csv")
-            nuevo_test_df = pd.DataFrame(nuevo_test, columns=["text", "label"])
-            
-            nuevo_test_df.to_csv(f'сокращение по частотности/test_{self.name}.csv', index=False)
-            print(f"test_{self.name}.csv")
+            # Solo predecir la respuesta (último token)
+            for i, (input_id, label) in enumerate(zip(input_ids, train_data["label"])):
+                # Encontrar posición donde comienza la respuesta
+                prompt_len = len(self.tokenizer.encode(
+                    self.classification_prompt.format(text=""), 
+                    truncation=False
+                )) - 1  # Restar el [CLS] o similar
         
-        #no se a niandido el nuevo test
-        # Tokenizar entrenamiento
-        if self.model_type == 'bert':
+
+            # Solo calcular loss en el token de respuesta
+            labels[i, -1] = self.tokenizer.encode(
+                self.class0_response if label == 0 else self.class1_response
+            )[0]  # Tomar el primer token de la respuest
+            train_labels = labels
+        
+        
+            test_texts = [text for text, _ in original_datos_procesados]
+            test_true_labels = [label for _, label in original_datos_procesados]
+            test_texts, _ = self._prepare_gpt_data(test_texts, test_true_labels)
+        
+        
+            test_encodings = self.tokenizer(
+                test_texts,
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_length,
+                return_tensors="pt"
+            )
+            test_labels = torch.tensor(test_true_labels)
+            
+        else:
+            train_texts = train_data["text"].tolist()
+            original_texts = [oracion for oracion, _ in original_datos_procesados]
+            original_labels = [etiqueta for _, etiqueta in original_datos_procesados]
+
+            similitudes = calcular_similitud_mayoria_optimizado(original_texts,
+                                                                train_texts,
+                                                                self.threshold)  # [len(original), len(train)]
+
+            interseccion = similitudes.any(dim=1)  # True si hay intersección con algún train_text
+            mask = ~interseccion.cpu().numpy()
+            nuevo_test = [(texto, etiqueta) for texto, etiqueta, keep in zip(original_texts, original_labels, mask) if keep]
+
+
+            if self.random_state == 0:
+                train_data.to_csv(f'сокращение по частотности/train_{self.name}.csv', index=False)
+                print(f"train_{self.name}.csv")
+                nuevo_test_df = pd.DataFrame(nuevo_test, columns=["text", "label"])
+
+                nuevo_test_df.to_csv(f'сокращение по частотности/test_{self.name}.csv', index=False)
+                print(f"test_{self.name}.csv")
+
+            #no se a niandido el nuevo test
+            # Tokenizar entrenamiento
             train_encodings = self.tokenizer(
                 train_data["text"].tolist(),
                 padding="max_length",
@@ -297,19 +367,12 @@ class DataProcessor:
                 return_tensors="pt"
             )
             test_labels = torch.tensor([etiqueta for _, etiqueta in nuevo_test])
-            return {
-                'train_encodings': train_encodings,
-                'train_labels': train_labels,
-                'test_encodings': test_encodings,
-                'test_labels': test_labels
-            }
-        else:  # GPT model
-            return {
-                'train_texts': train_data["text"].tolist(),
-                'train_labels': train_data["label"].values,
-                'test_texts': [texto for texto, _ in nuevo_test],
-                'test_labels': [etiqueta for _, etiqueta in nuevo_test]
-            }
+        return {
+            'train_encodings': train_encodings,
+            'train_labels': train_labels,
+            'test_encodings': test_encodings,
+            'test_labels': test_labels
+        }
 
 
 class TextDataset(Dataset):
@@ -336,76 +399,137 @@ class DatasetCreator:
         test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
         return {'train_loader': train_loader, 'test_loader': test_loader}
 
-def train_gpt_model(model, tokenizer, train_texts, train_labels, device, epochs=3):
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3, 
+                model_type='bert', wandb_run=None, dataset_name=None, model_name=None):
+    """
+    Args:
+        model: Modelo a entrenar
+        train_loader: DataLoader para entrenamiento
+        optimizer: Optimizador
+        loss_fn: Función de pérdida
+        device: Dispositivo (cuda/cpu)
+        epochs: Número de épocas
+        model_type: Tipo de modelo ('bert' o 'gpt')
+        wandb_run: Objeto de WandB para logging (opcional)
+        dataset_name: Nombre del dataset para logging
+        model_name: Nombre del modelo para logging
+    """
+    model.train()
     for epoch in range(epochs):
-        for text, label in zip(train_texts, train_labels):
-            prompt = f"Классифицируй следующий текст как Жанр 1 или Жанр 2:\n\n{text}\n\nМетка: "
-            inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True).to(device)
-            labels = torch.tensor([label]).to(device)
-            outputs = model(**inputs, labels=labels)
-            loss = outputs.loss
-            loss.backward()
-            optimizer.step()
+        total_loss = 0
+        total_batches = 0
+        
+        for batch_idx, batch in enumerate(train_loader):
             optimizer.zero_grad()
-        torch.cuda.empty_cache()
-        gc.collect()
-
-
-def evaluate_gpt_model(model, tokenizer, test_texts, test_labels, device):
-    all_preds = []
-    all_labels = test_labels
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=device)
-    
-    for text in test_texts:
-        prompt = f"Классифицируй следующий текст как Жанр 1 или Жанр 2:\n\n{text}\n\nМетка: "
-        result = pipe(prompt, max_new_tokens=10, num_return_sequences=1)[0]['generated_text']
-        prediction = 1 if "Жанр 2" in result else 0
-        all_preds.append(prediction)
-    
-    accuracy = sum(p == l for p, l in zip(all_preds, all_labels)) / len(all_labels)
-    report = classification_report(all_labels, all_preds, target_names=["Жанр 1", "Жанр 2"])
-    conf_matrix = confusion_matrix(all_labels, all_preds)
-    return {"accuracy": accuracy, "report": report, "conf_matrix": conf_matrix}
-
-
-def train_bert_model(model, train_loader, optimizer, loss_fn, device, epochs=3):
-    for epoch in range(epochs):
-        model.train()
-        for batch in train_loader:
-            optimizer.zero_grad()
+            
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
-            outputs = model(input_ids, attention_mask=attention_mask)
-            loss = loss_fn(outputs.logits, labels)
+            
+            if model_type == 'gpt':
+                # Entrenamiento para modelos GPT
+                outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels
+                )
+                loss = outputs.loss
+            else:
+                # Entrenamiento original para BERT
+                outputs = model(input_ids, attention_mask=attention_mask)
+                loss = loss_fn(outputs.logits, labels)
+            
             loss.backward()
             optimizer.step()
+            total_loss += loss.item()
+            total_batches += 1
+            
+            # Log batch loss
+#             if wandb_run:
+#                 wandb.log({
+#                     f"{dataset_name}/{model_name}/train/batch_loss": loss.item(),
+#                     "epoch": epoch + (batch_idx/len(train_loader))  # Log fractional epoch
+#                 })
+        epoch_loss = total_loss / total_batches
+        # Log epoch metrics
+#         if wandb_run:
+#             wandb.log({
+#                 f"{dataset_name}/{model_name}/train/epoch_loss": epoch_loss,
+#                 "epoch": epoch + 1  # Complete epoch
+#             })
+        
+        print(f'Epoch {epoch+1}, Loss: {total_loss/len(train_loader)}')
         torch.cuda.empty_cache()
         gc.collect()
+    return epoch_loss  # Return final epoch loss for summary
 
 
-def evaluate_bert_model(model, test_loader, device):
+
+def evaluate_model(model, test_loader, device, tokenizer, model_type='bert'):
     model.eval()
     all_preds = []
     all_labels = []
-    with torch.no_grad():
-        for batch in test_loader:
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-            outputs = model(input_ids, attention_mask=attention_mask)
-            predictions = torch.argmax(outputs.logits, dim=1)
-            all_preds.extend(predictions.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+    
+    if model_type == 'gpt':
+        # Evaluación para modelos GPT
+        class0_token = tokenizer.encode(" жанр0")[0]
+        class1_token = tokenizer.encode(" жанр1")[0]
+        
+        with torch.no_grad():
+            for batch in test_loader:
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                true_labels = batch['labels'].cpu().numpy()
+                
+                # Generar predicciones (solo el último token)
+                outputs = model.generate(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    max_new_tokens=1,  # Solo generar la categoría
+                    pad_token_id=tokenizer.eos_token_id,
+                    do_sample=False
+                )
+                
+                # Decodificar predicciones
+                pred_tokens = outputs[:, -1].cpu().numpy()
+                pred_labels = [
+                    0 if token == class0_token else 1 
+                    for token in pred_tokens
+                ]
+                
+                all_preds.extend(pred_labels)
+                all_labels.extend(true_labels)
+    else:
+        # Evaluación original para BERT
+        with torch.no_grad():
+            for batch in test_loader:
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                labels = batch['labels'].to(device)
+                
+                outputs = model(input_ids, attention_mask=attention_mask)
+                predictions = torch.argmax(outputs.logits, dim=1)
+                
+                all_preds.extend(predictions.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+    
+    # Calcular métricas
     accuracy = sum(p == l for p, l in zip(all_preds, all_labels)) / len(all_labels)
-    report = classification_report(all_labels, all_preds, target_names=["Жанр 1", "Жанр 2"])
+    report = classification_report(all_labels, all_preds, target_names=["жанр0", "жанр1"])
     conf_matrix = confusion_matrix(all_labels, all_preds)
-    return {"accuracy": accuracy, "report": report, "conf_matrix": conf_matrix}
+    
+    return {
+        "accuracy": accuracy,
+        "report": report,
+        "conf_matrix": conf_matrix,
+        "predictions": all_preds,
+        "true_labels": all_labels
+    }
 
 
 
-def train_and_evaluate_dataset(path1, path2, config, dataset_name):
+# +
+def train_and_evaluate_dataset(path1, path2, config, dataset_name, wandb_run=None):
     """
     Entrena y evalúa el modelo para un conjunto de datos específico.
     
@@ -414,19 +538,16 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name):
         path2 (str): Ruta al archivo del segundo género
         config (TrainingConfig): Configuración de entrenamiento
         dataset_name (str): Nombre del conjunto de datos
-    
+        wandb_ru: es para las metricas
     Returns:
         dict: Resultados con accuracy promedio y desviación estándar
     """
     seeds = list(range(config.num_repeats))
     accuracies = []
-    
-    #print(f"\nProcesando conjunto de datos: {dataset_name}")
-    
+    losses = []  # Para almacenar losses de cada repetición
+
     for seed in seeds:
-        #print(f"\nRepetición con semilla {seed}")
-        
-        # Crear pipeline
+        # Pipeline común
         ppl = PipelineCommon([
             (DataLoader_raw(path1, path2), 
              [], 
@@ -437,11 +558,11 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name):
              {'datos_procesados': 'datos_procesados',
               'original_datos_procesados': 'original_datos_procesados'}),
             (DataProcessor(config.tokenizer,
-                           config.max_length,
-                           seed,
-                           name=dataset_name,
-                           threshold=config.threshold, 
-                           model_type=config.model_type), 
+                          config.max_length,
+                          seed,
+                          name=dataset_name,
+                          threshold=config.threshold,
+                          model_type=config.model_type), 
              ['datos_procesados', 'original_datos_procesados'], 
              {'train_encodings': 'train_encodings', 
               'train_labels': 'train_labels',
@@ -455,63 +576,79 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name):
         ])
         
         result = ppl()
+        train_loader = result['train_loader']
+        test_loader = result['test_loader']
         
-        if config.model_type == 'bert':
-            train_loader = result['train_loader']
-            test_loader = result['test_loader']
-
-            # Configurar modelo
+        # Configurar modelo según tipo
+        ################################################################
+        if config.model_type == 'gpt':
+            model = AutoModelForCausalLM.from_pretrained(
+                config.model_name
+            ).to(config.device)
+            loss_fn = None  # Usamos el loss interno
+        else:
             model = BertForSequenceClassification.from_pretrained(
                 config.model_name,
                 num_labels=2).to(config.device)
-
-            optimizer = AdamW(model.parameters(), lr=config.learning_rate)
             loss_fn = torch.nn.CrossEntropyLoss()
-            train_bert_model(model,
-                             train_loader,
-                             optimizer,
-                             loss_fn, 
-                             config.device,
-                             epochs=config.epochs)
-            results = evaluate_bert_model(model,
-                                     test_loader,
-                                     config.device)
-        else: #gpt
-            train_texts = result['train_texts']
-            train_labels = result['train_labels']
-            test_texts = result['test_texts']
-            test_labels = result['test_labels']
-            
-            # Configurar modelo
-            model = AutoModelForCausalLM.from_pretrained(config.model_name).to(config.device)
-            optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
-            loss_fn = torch.nn.CrossEntropyLoss()
-            train_gpt_model(model,
-                            config.tokenizer,
-                            train_texts,
-                            train_labels, 
-                           config.device,
-                            epochs=config.epochs)
-            results = evaluate_gpt_model(model,
-                                         config.tokenizer,
-                                         test_texts,
-                                         test_labels, 
-                                         config.device)
+        ################################################################
+        
+        optimizer = AdamW(model.parameters(), lr=config.learning_rate)
+        
+        # Entrenar y evaluar
+#         def train_model(model,
+#                         train_loader,
+#                         optimizer,
+#                         loss_fn,
+#                         device,
+#                         epochs=3,
+#                         model_type='bert'
+#                         ,wandb_run=None):
 
-        accuracy = results['accuracy']
-        accuracies.append(accuracy)
-        #print(f"Accuracy con semilla {seed}: {accuracy:.4f}")
-    
+        final_loss = train_model(model,
+                                 train_loader,
+                                 optimizer,
+                                 loss_fn, 
+                                 config.device,
+                                 epochs=config.epochs, 
+                                 model_type=config.model_type,
+#                                  wandb_run=wandb_run,
+                                 dataset_name=dataset_name,
+                                 model_name=config.model_name
+                                )
+        losses.append(final_loss)
+        
+        
+        results = evaluate_model(model, test_loader, config.device, 
+                               config.tokenizer, config.model_type)
+        
+        accuracies.append(results['accuracy'])
+#         if wandb_run:
+#             wandb.log({
+#                 f"{dataset_name}/{config.model_name}/eval/accuracy": results['accuracy'],
+#                 f"{dataset_name}/{config.model_name}/eval/loss": final_loss,
+#                 "seed": seed
+#             })
     # Calcular estadísticas
     avg_accuracy = np.mean(accuracies)
     std_accuracy = np.std(accuracies)
-    #print(f"\nAccuracy promedio para {dataset_name}: " f"{avg_accuracy:.4f} ± {std_accuracy:.4f}")
+    avg_loss = np.mean(losses)
     
+#     if wandb_run:
+#         wandb.log({
+#             f"{dataset_name}/{config.model_name}/summary/avg_accuracy": avg_accuracy,
+#             f"{dataset_name}/{config.model_name}/summary/std_accuracy": std_accuracy,
+#             f"{dataset_name}/{config.model_name}/summary/avg_loss": avg_loss
+#         })
+        
     return {
         'dataset_name': dataset_name,
         'avg_accuracy': avg_accuracy,
         'std_accuracy': std_accuracy,
-        'accuracies': accuracies
+        'avg_loss': avg_loss,
+        'accuracies': accuracies,
+        'losses': losses,
+        'type': 'gpt' if config.model_type == 'gpt' else 'bert'
     }
 
 
