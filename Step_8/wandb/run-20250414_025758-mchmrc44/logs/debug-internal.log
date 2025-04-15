@@ -1,0 +1,16 @@
+{"time":"2025-04-14T02:57:58.05226638Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250414_025758-mchmrc44/logs/debug-core.log"}
+{"time":"2025-04-14T02:57:58.373092416Z","level":"INFO","msg":"created new stream","id":"mchmrc44"}
+{"time":"2025-04-14T02:57:58.373188618Z","level":"INFO","msg":"stream: started","id":"mchmrc44"}
+{"time":"2025-04-14T02:57:58.37325291Z","level":"INFO","msg":"handler: started","stream_id":"mchmrc44"}
+{"time":"2025-04-14T02:57:58.373358419Z","level":"INFO","msg":"sender: started","stream_id":"mchmrc44"}
+{"time":"2025-04-14T02:57:58.373388426Z","level":"INFO","msg":"writer: Do: started","stream_id":"mchmrc44"}
+{"time":"2025-04-14T02:57:58.644024442Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-14T02:57:59.443777346Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-14T02:57:59.443865312Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-14T02:58:00.406473717Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.748985271},{"desc":"uploading config.yaml","runtime_seconds":0.580716612,"progress":"771B/771B"}],"total_operations":2}}
+{"time":"2025-04-14T02:58:00.532457884Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-14T02:58:00.760049242Z","level":"INFO","msg":"stream: closing","id":"mchmrc44"}
+{"time":"2025-04-14T02:58:00.760086222Z","level":"INFO","msg":"handler: closed","stream_id":"mchmrc44"}
+{"time":"2025-04-14T02:58:00.760108133Z","level":"INFO","msg":"writer: Close: closed","stream_id":"mchmrc44"}
+{"time":"2025-04-14T02:58:00.760125476Z","level":"INFO","msg":"sender: closed","stream_id":"mchmrc44"}
+{"time":"2025-04-14T02:58:00.760211398Z","level":"INFO","msg":"stream: closed","id":"mchmrc44"}

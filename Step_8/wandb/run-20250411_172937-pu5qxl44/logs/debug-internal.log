@@ -1,0 +1,22 @@
+{"time":"2025-04-11T17:29:37.426208395Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_172937-pu5qxl44/logs/debug-core.log"}
+{"time":"2025-04-11T17:29:37.740526929Z","level":"INFO","msg":"created new stream","id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:37.740627119Z","level":"INFO","msg":"stream: started","id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:37.740645764Z","level":"INFO","msg":"sender: started","stream_id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:37.7406543Z","level":"INFO","msg":"handler: started","stream_id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:37.741027808Z","level":"INFO","msg":"writer: Do: started","stream_id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:38.012995473Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-11T17:29:38.232060515Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T17:29:38.232113295Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T17:29:38.232122181Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T17:29:38.232129786Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T17:29:38.23213713Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T17:29:38.232144704Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T17:29:38.651838457Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-11T17:29:38.651911295Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-11T17:29:39.612318329Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.734680796},{"desc":"uploading config.yaml","runtime_seconds":0.562366776,"progress":"771B/771B"}],"total_operations":2}}
+{"time":"2025-04-11T17:29:39.786787481Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-11T17:29:40.05688445Z","level":"INFO","msg":"stream: closing","id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:40.056913024Z","level":"INFO","msg":"handler: closed","stream_id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:40.056929665Z","level":"INFO","msg":"writer: Close: closed","stream_id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:40.056951366Z","level":"INFO","msg":"sender: closed","stream_id":"pu5qxl44"}
+{"time":"2025-04-11T17:29:40.057002784Z","level":"INFO","msg":"stream: closed","id":"pu5qxl44"}

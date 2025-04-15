@@ -1,0 +1,22 @@
+2025-04-11 17:21:15,444 INFO    MainThread:93566 [wandb_init.py:setup_run_log_directory():662] Logging user logs to /workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_172115-5iuk3n83/logs/debug.log
+2025-04-11 17:21:15,444 INFO    MainThread:93566 [wandb_init.py:setup_run_log_directory():663] Logging internal logs to /workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_172115-5iuk3n83/logs/debug-internal.log
+2025-04-11 17:21:15,444 INFO    MainThread:93566 [wandb_init.py:monkeypatch_ipython():581] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x7f8d901f35b0>
+2025-04-11 17:21:15,444 INFO    MainThread:93566 [wandb_init.py:init():781] calling init triggers
+2025-04-11 17:21:15,445 INFO    MainThread:93566 [wandb_init.py:init():786] wandb.init called with sweep_config: {}
+config: {'_wandb': {}}
+2025-04-11 17:21:15,445 INFO    MainThread:93566 [wandb_init.py:init():809] starting backend
+2025-04-11 17:21:15,445 INFO    MainThread:93566 [wandb_init.py:init():813] sending inform_init request
+2025-04-11 17:21:15,447 INFO    MainThread:93566 [backend.py:_multiprocessing_setup():101] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2025-04-11 17:21:15,447 INFO    MainThread:93566 [wandb_init.py:init():823] backend started and connected
+2025-04-11 17:21:15,456 INFO    MainThread:93566 [wandb_run.py:_label_probe_notebook():1267] probe notebook
+2025-04-11 17:21:15,456 INFO    MainThread:93566 [wandb_run.py:_label_probe_notebook():1277] Unable to probe notebook: 'NoneType' object has no attribute 'get'
+2025-04-11 17:21:15,457 INFO    MainThread:93566 [wandb_init.py:init():915] updated telemetry
+2025-04-11 17:21:15,605 INFO    MainThread:93566 [wandb_init.py:init():939] communicating run to backend with 90.0 second timeout
+2025-04-11 17:21:16,035 INFO    MainThread:93566 [wandb_init.py:init():1014] starting run threads in backend
+2025-04-11 17:21:16,221 INFO    MainThread:93566 [wandb_run.py:_console_start():2454] atexit reg
+2025-04-11 17:21:16,221 INFO    MainThread:93566 [wandb_run.py:_redirect():2306] redirect: wrap_raw
+2025-04-11 17:21:16,221 INFO    MainThread:93566 [wandb_run.py:_redirect():2371] Wrapping output streams.
+2025-04-11 17:21:16,221 INFO    MainThread:93566 [wandb_run.py:_redirect():2394] Redirects installed.
+2025-04-11 17:21:16,222 INFO    MainThread:93566 [wandb_init.py:init():1056] run started, returning control to user process
+2025-04-11 17:21:16,223 INFO    MainThread:93566 [jupyter.py:save_ipynb():384] [no run ID] not saving jupyter notebook
+2025-04-11 17:21:16,223 INFO    MainThread:93566 [wandb_init.py:_pause_backend():546] [no run ID] pausing backend

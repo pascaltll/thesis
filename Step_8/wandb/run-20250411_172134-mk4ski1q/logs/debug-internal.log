@@ -1,0 +1,20 @@
+{"time":"2025-04-11T17:21:34.394774206Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250411_172134-mk4ski1q/logs/debug-core.log"}
+{"time":"2025-04-11T17:21:34.71039436Z","level":"INFO","msg":"created new stream","id":"mk4ski1q"}
+{"time":"2025-04-11T17:21:34.710451368Z","level":"INFO","msg":"stream: started","id":"mk4ski1q"}
+{"time":"2025-04-11T17:21:34.710495081Z","level":"INFO","msg":"handler: started","stream_id":"mk4ski1q"}
+{"time":"2025-04-11T17:21:34.710498918Z","level":"INFO","msg":"writer: Do: started","stream_id":"mk4ski1q"}
+{"time":"2025-04-11T17:21:34.710885703Z","level":"INFO","msg":"sender: started","stream_id":"mk4ski1q"}
+{"time":"2025-04-11T17:21:34.971008556Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-11T17:21:35.195997741Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T17:22:36.794594862Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T17:22:36.835720689Z","level":"INFO","msg":"Pausing system monitor"}
+{"time":"2025-04-11T17:23:45.300339161Z","level":"INFO","msg":"Resuming system monitor"}
+{"time":"2025-04-11T17:23:45.343897103Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-11T17:23:45.343989879Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-11T17:23:46.319686537Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.528202371},{"desc":"uploading config.yaml","runtime_seconds":0.337193948,"progress":"771B/771B"}],"total_operations":2}}
+{"time":"2025-04-11T17:23:46.700045612Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-11T17:23:46.932767947Z","level":"INFO","msg":"stream: closing","id":"mk4ski1q"}
+{"time":"2025-04-11T17:23:46.932800058Z","level":"INFO","msg":"handler: closed","stream_id":"mk4ski1q"}
+{"time":"2025-04-11T17:23:46.932823161Z","level":"INFO","msg":"sender: closed","stream_id":"mk4ski1q"}
+{"time":"2025-04-11T17:23:46.932816429Z","level":"INFO","msg":"writer: Close: closed","stream_id":"mk4ski1q"}
+{"time":"2025-04-11T17:23:46.933111168Z","level":"INFO","msg":"stream: closed","id":"mk4ski1q"}

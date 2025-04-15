@@ -1,0 +1,16 @@
+{"time":"2025-04-14T22:22:18.655323044Z","level":"INFO","msg":"stream: starting","core version":"0.19.9","symlink path":"/workspace/notebooks/Carlos/fine_tunig_project/thesis/Step_8/wandb/run-20250414_222218-qfnxyera/logs/debug-core.log"}
+{"time":"2025-04-14T22:22:18.969064623Z","level":"INFO","msg":"created new stream","id":"qfnxyera"}
+{"time":"2025-04-14T22:22:18.969133072Z","level":"INFO","msg":"stream: started","id":"qfnxyera"}
+{"time":"2025-04-14T22:22:18.969153551Z","level":"INFO","msg":"writer: Do: started","stream_id":"qfnxyera"}
+{"time":"2025-04-14T22:22:18.96916902Z","level":"INFO","msg":"handler: started","stream_id":"qfnxyera"}
+{"time":"2025-04-14T22:22:18.969602979Z","level":"INFO","msg":"sender: started","stream_id":"qfnxyera"}
+{"time":"2025-04-14T22:22:19.292819841Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-14T22:22:19.859698858Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-14T22:22:19.859820788Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-14T22:22:20.822351949Z","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.677900593},{"desc":"uploading config.yaml","runtime_seconds":0.507769971,"progress":"771B/771B"}],"total_operations":2}}
+{"time":"2025-04-14T22:22:21.047211187Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-14T22:22:21.29932866Z","level":"INFO","msg":"stream: closing","id":"qfnxyera"}
+{"time":"2025-04-14T22:22:21.299343588Z","level":"INFO","msg":"handler: closed","stream_id":"qfnxyera"}
+{"time":"2025-04-14T22:22:21.299355791Z","level":"INFO","msg":"writer: Close: closed","stream_id":"qfnxyera"}
+{"time":"2025-04-14T22:22:21.299409583Z","level":"INFO","msg":"sender: closed","stream_id":"qfnxyera"}
+{"time":"2025-04-14T22:22:21.299421715Z","level":"INFO","msg":"stream: closed","id":"qfnxyera"}

@@ -1,0 +1,26 @@
+train_Изъяты лексемы с частотой выше 9 - distilbert-base-multilingual.csv
+test_Изъяты лексемы с частотой выше 9 - distilbert-base-multilingual.csv
+Epoch 1, Loss: 0.7729897896448771
+Epoch 2, Loss: 0.6831375360488892
+Epoch 3, Loss: 0.6510909795761108
+Epoch 4, Loss: 0.6488459209601084
+Epoch 1, Loss: 0.7999238868554434
+Epoch 2, Loss: 0.6718833943208059
+Epoch 3, Loss: 0.6558094223340353
+Epoch 4, Loss: 0.6365906596183777
+Epoch 1, Loss: 0.8720608154932658
+Epoch 2, Loss: 0.6916723350683848
+Epoch 3, Loss: 0.6545341710249583
+Epoch 4, Loss: 0.6554234226544698
+Epoch 1, Loss: 0.8536714315414429
+Epoch 2, Loss: 0.6912460525830587
+Epoch 3, Loss: 0.6815811296304067
+Epoch 4, Loss: 0.6615298986434937
+Epoch 1, Loss: 0.9294274151325226
+Epoch 2, Loss: 0.7001192967096964
+Epoch 3, Loss: 0.6608072817325592
+Epoch 4, Loss: 0.6691031257311503
+Epoch 1, Loss: 0.8405440350373586
+Epoch 2, Loss: 0.6873025198777517
+Epoch 3, Loss: 0.6611754496892294
+Epoch 4, Loss: 0.6557105978329977
