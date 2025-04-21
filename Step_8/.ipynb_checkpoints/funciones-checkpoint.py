@@ -13,13 +13,15 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BertForSequenceCla
 from tqdm import tqdm
 import gc
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix, classification_report
+from sklearn.metrics import roc_auc_score
+import torch.nn.functional as F
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from razdel import sentenize
 import nltk
 from sklearn.feature_extraction.text import CountVectorizer
-nltk.download('punkt')
 from transformers import logging
 from transformers import AutoTokenizer
 logging.set_verbosity_error()
@@ -27,7 +29,9 @@ logging.set_verbosity_error()
 import matplotlib.pyplot as plt
 import numpy as np
 
-# import wandb
+
+nltk.download('punkt_tab')
+nltk.download('punkt')
 
 # -
 
@@ -232,16 +236,14 @@ class SentenceSplitterAndCleaner:
         }
 
 class DataProcessor:
-    #def __init__(self, tokenizer, max_length, random_state, test_size=0.2):
     def __init__(self,
                  tokenizer,
                  max_length,
                  random_state,
                  test_size=0.2,
                  name='data_set_name',
-                 threshold = 0.5,
+                 threshold=0.5,
                  model_type='bert'):
-    
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.test_size = test_size
@@ -250,41 +252,26 @@ class DataProcessor:
         self.threshold = threshold
         self.model_type = model_type
         
-        self.classification_prompt = "Классифицируйте этот текст:\n{text}\nКатегория:"
-        self.class0_response = " жанр0"  
-        self.class1_response = " жанр1"
-        
-    def _prepare_gpt_data(self, texts, labels):
-        """Prepara datos para modelos GPT con prompts"""
-        processed_texts = []
-        processed_labels = []
-        
-        for text, label in zip(texts, labels):
-            prompt = self.classification_prompt.format(text=text)
-            response = self.class0_response if label == 0 else self.class1_response
-            full_text = prompt + response
-            
-            processed_texts.append(full_text)
-            processed_labels.append(response.strip())
-            
-        return processed_texts, processed_labels
-    
     def __call__(self, datos_procesados, original_datos_procesados):
         df = pd.DataFrame(datos_procesados, columns=["text", "label"])
         train_data, test_data = train_test_split(df,
                                                  test_size=self.test_size,
                                                  random_state=self.random_state)
         
-        
-        
         if self.model_type == 'gpt':
-            train_texts, train_labels = self._prepare_gpt_data(
-                train_data["text"].tolist(),
-                train_data["label"].tolist()
-            )
-        
-        
-            # Tokenización para GPT
+            train_texts = train_data["text"].tolist()
+            train_labels = train_data["label"].tolist()
+            
+            original_texts = [oracion for oracion, _ in original_datos_procesados]
+            original_labels = [etiqueta for _, etiqueta in original_datos_procesados]
+            
+            # Calcular similitudes para filtrar el conjunto de prueba
+            similitudes = calcular_similitud_mayoria_optimizado(original_texts, train_texts, self.threshold)
+            interseccion = similitudes.any(dim=1)
+            mask = ~interseccion.cpu().numpy()
+            nuevo_test = [(texto, etiqueta) for texto, etiqueta, keep in zip(original_texts, original_labels, mask) if keep]
+            
+            # Tokenizar entrenamiento
             train_encodings = self.tokenizer(
                 train_texts,
                 padding="max_length",
@@ -292,40 +279,25 @@ class DataProcessor:
                 max_length=self.max_length,
                 return_tensors="pt"
             )
-            # Crear máscara de etiquetas para GPT
-            input_ids = train_encodings.input_ids
-            labels = torch.full_like(input_ids, -100)  # Ignorar todos los tokens
-
-        
-            # Solo predecir la respuesta (último token)
-            for i, (input_id, label) in enumerate(zip(input_ids, train_data["label"])):
-                # Encontrar posición donde comienza la respuesta
-                prompt_len = len(self.tokenizer.encode(
-                    self.classification_prompt.format(text=""), 
-                    truncation=False
-                )) - 1  # Restar el [CLS] o similar
-        
-
-            # Solo calcular loss en el token de respuesta
-            labels[i, -1] = self.tokenizer.encode(
-                self.class0_response if label == 0 else self.class1_response
-            )[0]  # Tomar el primer token de la respuest
-            train_labels = labels
-        
-        
-            test_texts = [text for text, _ in original_datos_procesados]
-            test_true_labels = [label for _, label in original_datos_procesados]
-            test_texts, _ = self._prepare_gpt_data(test_texts, test_true_labels)
-        
-        
+            train_labels = torch.tensor(train_labels)
+            
+            # Tokenizar prueba
             test_encodings = self.tokenizer(
-                test_texts,
+                [texto for texto, _ in nuevo_test],
                 padding="max_length",
                 truncation=True,
                 max_length=self.max_length,
                 return_tensors="pt"
             )
-            test_labels = torch.tensor(test_true_labels)
+            test_labels = torch.tensor([etiqueta for _, etiqueta in nuevo_test])
+            
+            # Guardar datos si random_state == 0
+            if self.random_state == 0:
+                train_data.to_csv(f'сокращение по частотности/train_{self.name}.csv', index=False)
+                print(f"train_{self.name}.csv")
+                nuevo_test_df = pd.DataFrame(nuevo_test, columns=["text", "label"])
+                nuevo_test_df.to_csv(f'сокращение по частотности/test_{self.name}.csv', index=False)
+                print(f"test_{self.name}.csv")
             
         else:
             train_texts = train_data["text"].tolist()
@@ -334,22 +306,18 @@ class DataProcessor:
 
             similitudes = calcular_similitud_mayoria_optimizado(original_texts,
                                                                 train_texts,
-                                                                self.threshold)  # [len(original), len(train)]
-
-            interseccion = similitudes.any(dim=1)  # True si hay intersección con algún train_text
+                                                                self.threshold)
+            interseccion = similitudes.any(dim=1)
             mask = ~interseccion.cpu().numpy()
             nuevo_test = [(texto, etiqueta) for texto, etiqueta, keep in zip(original_texts, original_labels, mask) if keep]
-
 
             if self.random_state == 0:
                 train_data.to_csv(f'сокращение по частотности/train_{self.name}.csv', index=False)
                 print(f"train_{self.name}.csv")
                 nuevo_test_df = pd.DataFrame(nuevo_test, columns=["text", "label"])
-
                 nuevo_test_df.to_csv(f'сокращение по частотности/test_{self.name}.csv', index=False)
                 print(f"test_{self.name}.csv")
 
-            #no se a niandido el nuevo test
             # Tokenizar entrenamiento
             train_encodings = self.tokenizer(
                 train_data["text"].tolist(),
@@ -367,6 +335,11 @@ class DataProcessor:
                 return_tensors="pt"
             )
             test_labels = torch.tensor([etiqueta for _, etiqueta in nuevo_test])
+        
+        # Depuración: Verificar forma y contenido de las etiquetas
+        print(f"Train labels sample: {train_labels[:5]}, Shape: {train_labels.shape}")
+        print(f"Test labels sample: {test_labels[:5]}, Shape: {test_labels.shape}")
+        
         return {
             'train_encodings': train_encodings,
             'train_labels': train_labels,
@@ -400,7 +373,7 @@ class DatasetCreator:
         return {'train_loader': train_loader, 'test_loader': test_loader}
 
 def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3, 
-                model_type='bert', wandb_run=None, dataset_name=None, model_name=None):
+                model_type='bert', dataset_name=None, model_name=None, classifier=None):
     """
     Args:
         model: Modelo a entrenar
@@ -410,11 +383,13 @@ def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3,
         device: Dispositivo (cuda/cpu)
         epochs: Número de épocas
         model_type: Tipo de modelo ('bert' o 'gpt')
-        wandb_run: Objeto de WandB para logging (opcional)
         dataset_name: Nombre del dataset para logging
         model_name: Nombre del modelo para logging
+        classifier: Clasificador lineal para GPT (opcional)
     """
     model.train()
+    epoch_losses = []
+    
     for epoch in range(epochs):
         total_loss = 0
         total_batches = 0
@@ -427,13 +402,26 @@ def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3,
             labels = batch['labels'].to(device)
             
             if model_type == 'gpt':
-                # Entrenamiento para modelos GPT
+                if classifier is None:
+                    raise ValueError("Classifier must be provided for GPT model")
+                
+                # Obtener hidden states para GPT
                 outputs = model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
-                    labels=labels
+                    output_hidden_states=True
                 )
-                loss = outputs.loss
+                
+                # Tomar el último layer de hidden states [batch_size, seq_len, hidden_size]
+                last_hidden = outputs.hidden_states[-1]
+                # Promedio de todos los tokens (consistente con evaluate_model)
+                pooled = last_hidden.mean(dim=1)
+                
+                # Pasar por el clasificador lineal
+                logits = classifier(pooled)
+                
+                # Calcular pérdida
+                loss = loss_fn(logits, labels)
             else:
                 # Entrenamiento original para BERT
                 outputs = model(input_ids, attention_mask=attention_mask)
@@ -444,63 +432,51 @@ def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3,
             total_loss += loss.item()
             total_batches += 1
             
-            # Log batch loss
-#             if wandb_run:
-#                 wandb.log({
-#                     f"{dataset_name}/{model_name}/train/batch_loss": loss.item(),
-#                     "epoch": epoch + (batch_idx/len(train_loader))  # Log fractional epoch
-#                 })
+            # Log batch loss (mantener si usas WandB u otro sistema de logging)
+            
         epoch_loss = total_loss / total_batches
-        # Log epoch metrics
-#         if wandb_run:
-#             wandb.log({
-#                 f"{dataset_name}/{model_name}/train/epoch_loss": epoch_loss,
-#                 "epoch": epoch + 1  # Complete epoch
-#             })
+        epoch_losses.append(epoch_loss)
         
-        print(f'Epoch {epoch+1}, Loss: {total_loss/len(train_loader)}')
+        # Log epoch metrics (mantener si usas WandB u otro sistema de logging)
+        print(f'Epoch {epoch+1}, Loss: {epoch_loss}')
+        
         torch.cuda.empty_cache()
         gc.collect()
+    
     return epoch_loss  # Return final epoch loss for summary
 
 
+# +
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, average_precision_score, log_loss
+import torch.nn.functional as F
+import numpy as np
 
-def evaluate_model(model, test_loader, device, tokenizer, model_type='bert'):
+def evaluate_model(model, test_loader, device, tokenizer, model_type='bert', classifier=None):
     model.eval()
     all_preds = []
     all_labels = []
+    all_probs = []  # Lista para acumular probabilidades por lote
     
     if model_type == 'gpt':
-        # Evaluación para modelos GPT
-        class0_token = tokenizer.encode(" жанр0")[0]
-        class1_token = tokenizer.encode(" жанр1")[0]
-        
+        if classifier is None:
+            raise ValueError("Classifier must be provided for GPT model")
         with torch.no_grad():
             for batch in test_loader:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
                 true_labels = batch['labels'].cpu().numpy()
                 
-                # Generar predicciones (solo el último token)
-                outputs = model.generate(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    max_new_tokens=1,  # Solo generar la categoría
-                    pad_token_id=tokenizer.eos_token_id,
-                    do_sample=False
-                )
-                
-                # Decodificar predicciones
-                pred_tokens = outputs[:, -1].cpu().numpy()
-                pred_labels = [
-                    0 if token == class0_token else 1 
-                    for token in pred_tokens
-                ]
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
+                last_hidden = outputs.hidden_states[-1]
+                pooled = last_hidden.mean(dim=1)
+                logits = classifier(pooled)
+                probs = F.softmax(logits, dim=1).cpu().numpy()  # [batch_size, 2]
+                pred_labels = torch.argmax(logits, dim=1).cpu().numpy()
                 
                 all_preds.extend(pred_labels)
                 all_labels.extend(true_labels)
+                all_probs.append(probs)  # Acumular array por lote
     else:
-        # Evaluación original para BERT
         with torch.no_grad():
             for batch in test_loader:
                 input_ids = batch['input_ids'].to(device)
@@ -508,145 +484,161 @@ def evaluate_model(model, test_loader, device, tokenizer, model_type='bert'):
                 labels = batch['labels'].to(device)
                 
                 outputs = model(input_ids, attention_mask=attention_mask)
+                probs = F.softmax(outputs.logits, dim=1).cpu().numpy()  # [batch_size, 2]
                 predictions = torch.argmax(outputs.logits, dim=1)
                 
                 all_preds.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
+                all_probs.append(probs)  # Acumular array por lote
+    
+    # Convertir listas a arrays
+    all_preds = np.array(all_preds)
+    all_labels = np.array(all_labels)
+    all_probs = np.vstack(all_probs)  # Concatenar arrays en [num_samples, 2]
+    
+    # Depuración: Verificar formas
+    print(f"all_preds shape: {all_preds.shape}")
+    print(f"all_labels shape: {all_labels.shape}")
+    print(f"all_probs shape: {all_probs.shape}")
     
     # Calcular métricas
     accuracy = sum(p == l for p, l in zip(all_preds, all_labels)) / len(all_labels)
-    report = classification_report(all_labels, all_preds, target_names=["жанр0", "жанр1"])
+    report = classification_report(all_labels, all_preds, target_names=["жанр0", "жанр1"], output_dict=True)
     conf_matrix = confusion_matrix(all_labels, all_preds)
+    roc_auc = roc_auc_score(all_labels, all_probs[:, 1])  # Probabilidad de clase 1
+    pr_auc = average_precision_score(all_labels, all_probs[:, 1])
+    log_loss_val = log_loss(all_labels, all_probs)
     
     return {
         "accuracy": accuracy,
+        "f1_weighted": report['weighted avg']['f1-score'],
+        "f1_macro": report['macro avg']['f1-score'],
+        "f1_class0": report['жанр0']['f1-score'],
+        "f1_class1": report['жанр1']['f1-score'],
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc,
+        "log_loss": log_loss_val,
         "report": report,
         "conf_matrix": conf_matrix,
-        "predictions": all_preds,
-        "true_labels": all_labels
+        "predictions": all_preds.tolist(),
+        "true_labels": all_labels.tolist(),
+        "probs": all_probs.tolist()
     }
 
 
+# -
 
-# +
-def train_and_evaluate_dataset(path1, path2, config, dataset_name, wandb_run=None):
-    """
-    Entrena y evalúa el modelo para un conjunto de datos específico.
-    
-    Args:
-        path1 (str): Ruta al archivo del primer género
-        path2 (str): Ruta al archivo del segundo género
-        config (TrainingConfig): Configuración de entrenamiento
-        dataset_name (str): Nombre del conjunto de datos
-        wandb_ru: es para las metricas
-    Returns:
-        dict: Resultados con accuracy promedio y desviación estándar
-    """
+def train_and_evaluate_dataset(path1, path2, config, dataset_name, dataset_type):
     seeds = list(range(config.num_repeats))
     accuracies = []
-    losses = []  # Para almacenar losses de cada repetición
-
+    f1_weighteds = []
+    f1_macros = []
+    f1_class0s = []
+    f1_class1s = []
+    roc_aucs = []
+    pr_aucs = []
+    log_losses = []
+    losses = []
+    
     for seed in seeds:
         # Pipeline común
         ppl = PipelineCommon([
-            (DataLoader_raw(path1, path2), 
-             [], 
-             {'datos_raw': 'datos_raw',
-              'original_datos_raw': 'original_datos_raw'}),
-            (SentenceSplitterAndCleaner(config.tokenizer), 
-             ['datos_raw', 'original_datos_raw'], 
-             {'datos_procesados': 'datos_procesados',
-              'original_datos_procesados': 'original_datos_procesados'}),
-            (DataProcessor(config.tokenizer,
-                          config.max_length,
-                          seed,
-                          name=dataset_name,
-                          threshold=config.threshold,
-                          model_type=config.model_type), 
+            (DataLoader_raw(path1, path2), [], {'datos_raw': 'datos_raw', 'original_datos_raw': 'original_datos_raw'}),
+            (SentenceSplitterAndCleaner(config.tokenizer), ['datos_raw', 'original_datos_raw'], 
+             {'datos_procesados': 'datos_procesados', 'original_datos_procesados': 'original_datos_procesados'}),
+            (DataProcessor(config.tokenizer, config.max_length, seed, name=dataset_name, 
+                           threshold=config.threshold, model_type=config.model_type), 
              ['datos_procesados', 'original_datos_procesados'], 
-             {'train_encodings': 'train_encodings', 
-              'train_labels': 'train_labels',
-              'test_encodings': 'test_encodings', 
-              'test_labels': 'test_labels'}),
+             {'train_encodings': 'train_encodings', 'train_labels': 'train_labels',
+              'test_encodings': 'test_encodings', 'test_labels': 'test_labels'}),
             (DatasetCreator(batch_size=config.batch_size), 
-             ['train_encodings', 'train_labels', 
-              'test_encodings', 'test_labels'], 
-             {'train_loader': 'train_loader', 
-              'test_loader': 'test_loader'})
+             ['train_encodings', 'train_labels', 'test_encodings', 'test_labels'], 
+             {'train_loader': 'train_loader', 'test_loader': 'test_loader'})
         ])
         
         result = ppl()
         train_loader = result['train_loader']
         test_loader = result['test_loader']
         
-        # Configurar modelo según tipo
-        ################################################################
+        # Configurar modelo
         if config.model_type == 'gpt':
-            model = AutoModelForCausalLM.from_pretrained(
-                config.model_name
-            ).to(config.device)
-            loss_fn = None  # Usamos el loss interno
-        else:
-            model = BertForSequenceClassification.from_pretrained(
-                config.model_name,
-                num_labels=2).to(config.device)
+            model = AutoModelForCausalLM.from_pretrained(config.model_name, output_hidden_states=True).to(config.device)
+            classifier = torch.nn.Linear(model.config.hidden_size, 2).to(config.device)
             loss_fn = torch.nn.CrossEntropyLoss()
-        ################################################################
+        else:
+            model = BertForSequenceClassification.from_pretrained(config.model_name, num_labels=2).to(config.device)
+            classifier = None
+            loss_fn = torch.nn.CrossEntropyLoss()
         
-        optimizer = AdamW(model.parameters(), lr=config.learning_rate)
+        optimizer = AdamW(list(model.parameters()) + (list(classifier.parameters()) if classifier else []), 
+                         lr=config.learning_rate)
         
-        # Entrenar y evaluar
-#         def train_model(model,
-#                         train_loader,
-#                         optimizer,
-#                         loss_fn,
-#                         device,
-#                         epochs=3,
-#                         model_type='bert'
-#                         ,wandb_run=None):
-
-        final_loss = train_model(model,
-                                 train_loader,
-                                 optimizer,
-                                 loss_fn, 
-                                 config.device,
-                                 epochs=config.epochs, 
-                                 model_type=config.model_type,
-#                                  wandb_run=wandb_run,
-                                 dataset_name=dataset_name,
-                                 model_name=config.model_name
-                                )
+        final_loss = train_model(model, train_loader, optimizer, loss_fn, config.device, 
+                                epochs=config.epochs, model_type=config.model_type, 
+                                dataset_name=dataset_name, model_name=config.model_name, classifier=classifier)
         losses.append(final_loss)
         
-        
-        results = evaluate_model(model, test_loader, config.device, 
-                               config.tokenizer, config.model_type)
+        results = evaluate_model(model, test_loader, config.device, config.tokenizer, 
+                               config.model_type, classifier=classifier)
         
         accuracies.append(results['accuracy'])
-#         if wandb_run:
-#             wandb.log({
-#                 f"{dataset_name}/{config.model_name}/eval/accuracy": results['accuracy'],
-#                 f"{dataset_name}/{config.model_name}/eval/loss": final_loss,
-#                 "seed": seed
-#             })
-    # Calcular estadísticas
-    avg_accuracy = np.mean(accuracies)
-    std_accuracy = np.std(accuracies)
-    avg_loss = np.mean(losses)
-    
-#     if wandb_run:
-#         wandb.log({
-#             f"{dataset_name}/{config.model_name}/summary/avg_accuracy": avg_accuracy,
-#             f"{dataset_name}/{config.model_name}/summary/std_accuracy": std_accuracy,
-#             f"{dataset_name}/{config.model_name}/summary/avg_loss": avg_loss
-#         })
+        f1_weighteds.append(results['f1_weighted'])
+        f1_macros.append(results['f1_macro'])
+        f1_class0s.append(results['f1_class0'])
+        f1_class1s.append(results['f1_class1'])
+        roc_aucs.append(results['roc_auc'])
+        pr_aucs.append(results['pr_auc'])
+        log_losses.append(results['log_loss'])
         
+        # Opcional: Log en WandB
+        # import wandb
+        # wandb.log({
+        #     "seed": seed,
+        #     "accuracy": results['accuracy'],
+        #     "f1_weighted": results['f1_weighted'],
+        #     "f1_macro": results['f1_macro'],
+        #     "f1_class0": results['f1_class0'],
+        #     "f1_class1": results['f1_class1'],
+        #     "roc_auc": results['roc_auc'],
+        #     "pr_auc": results['pr_auc'],
+        #     "log_loss": results['log_loss'],
+        #     "train_loss": final_loss,
+        #     "confusion_matrix": wandb.plot.confusion_matrix(
+        #         y_true=results['true_labels'], 
+        #         preds=results['predictions'], 
+        #         class_names=["жанр0", "жанр1"]
+        #     )
+        # })
+    
     return {
         'dataset_name': dataset_name,
-        'avg_accuracy': avg_accuracy,
-        'std_accuracy': std_accuracy,
-        'avg_loss': avg_loss,
+        'dataset_type': dataset_type,
+        'model_name': config.model_name,
+        'avg_accuracy': np.mean(accuracies),
+        'std_accuracy': np.std(accuracies),
+        'avg_f1_weighted': np.mean(f1_weighteds),
+        'std_f1_weighted': np.std(f1_weighteds),
+        'avg_f1_macro': np.mean(f1_macros),
+        'std_f1_macro': np.std(f1_macros),
+        'avg_f1_class0': np.mean(f1_class0s),
+        'std_f1_class0': np.std(f1_class0s),
+        'avg_f1_class1': np.mean(f1_class1s),
+        'std_f1_class1': np.std(f1_class1s),
+        'avg_roc_auc': np.mean(roc_aucs),
+        'std_roc_auc': np.std(roc_aucs),
+        'avg_pr_auc': np.mean(pr_aucs),
+        'std_pr_auc': np.std(pr_aucs),
+        'avg_log_loss': np.mean(log_losses),
+        'std_log_loss': np.std(log_losses),
+        'avg_loss': np.mean(losses),
         'accuracies': accuracies,
+        'f1_weighteds': f1_weighteds,
+        'f1_macros': f1_macros,
+        'f1_class0s': f1_class0s,
+        'f1_class1s': f1_class1s,
+        'roc_aucs': roc_aucs,
+        'pr_aucs': pr_aucs,
+        'log_losses': log_losses,
         'losses': losses,
         'type': 'gpt' if config.model_type == 'gpt' else 'bert'
     }
@@ -750,7 +742,131 @@ def plot_model_performance(datasets, models, results, save_path='frecuencia_prof
 # models = [{'name': 'model1'}, {'name': 'model2'}]
 # results = [{'dataset_name': 'dataset1_model1', 'avg_accuracy': 0.85}, ...]
 # plot_model_performance(datasets, models, results, save_path='frecuencia_profesional.png')
-# -
 
+
+# +
+import json
+import numpy as np
+import matplotlib.pyplot as plt
+
+def read_results(filename):
+    """Load results from JSON file"""
+    with open(filename, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def prepare_data(results):
+    """Organize data for visualization"""
+    dataset_names = sorted(list(set(item['dataset_name'] for item in results)))
+    model_names = sorted(list(set(item['model_name'] for item in results)))
+    
+    accuracy_matrix = np.zeros((len(dataset_names), len(model_names)))
+    
+    for item in results:
+        dataset_idx = dataset_names.index(item['dataset_name'])
+        model_idx = model_names.index(item['model_name'])
+        accuracy_matrix[dataset_idx, model_idx] = item['avg_accuracy']
+    
+    return dataset_names, model_names, accuracy_matrix
+
+def create_comparison_plot(datasets, models, accuracies, title_suffix, save_path):
+    """Generate a single comparison plot"""
+    plt.style.use('seaborn-v0_8')
+    fig, ax = plt.subplots(figsize=(20, 10), dpi=100)
+    
+    n_models = len(models)
+    bar_width = min(0.8 / n_models, 0.15)
+    index = np.arange(len(datasets))
+    colors = plt.cm.Set2(np.linspace(0, 1, n_models))
+    
+    for i, (model, color) in enumerate(zip(models, colors)):
+        bars = plt.bar(
+            index + i * bar_width,
+            accuracies[:, i],
+            bar_width,
+            label=model,
+            color=color,
+            edgecolor='black',
+            alpha=0.8
+        )
+        
+        if n_models <= 10:
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width()/2., 
+                    height,
+                    f'{height:.3f}',
+                    ha='center', 
+                    va='bottom', 
+                    fontsize=9
+                )
+    
+    plt.xlabel('Dataset', fontsize=12, fontweight='bold')
+    plt.ylabel('Average Accuracy', fontsize=12, fontweight='bold')
+    plt.title(f'Model Performance Comparison ({title_suffix})', fontsize=14, fontweight='bold', pad=20)
+    
+    plt.xticks(
+        index + bar_width * (n_models - 1) / 2,
+        datasets,
+        rotation=45,
+        ha='right',
+        fontsize=10
+    )
+    
+    plt.grid(True, axis='y', linestyle='--', alpha=0.7)
+    plt.legend(
+        title='Models',
+        title_fontsize=12,
+        fontsize=10,
+        loc='center left',
+        bbox_to_anchor=(1.05, 0.5),
+        frameon=True
+    )
+    
+    plt.ylim(0, max(accuracies.max() * 1.1, 1))
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+def create_separate_plots(dataset_names, model_names, accuracy_matrix):
+    """Create two separate plots: frequency-based and other datasets"""
+    # Split datasets into two groups
+    freq_indices = [i for i, name in enumerate(dataset_names) if 'frequenc' in name.lower()]
+    other_indices = [i for i, name in enumerate(dataset_names) if 'frequency' not in name.lower()]
+    
+    # Frequency-based datasets plot
+#     if freq_indices:
+#         freq_datasets = [dataset_names[i] for i in freq_indices]
+#         freq_accuracies = accuracy_matrix[freq_indices, :]
+#         create_comparison_plot(
+#             freq_datasets, 
+#             model_names, 
+#             freq_accuracies,
+#             'Frequency-based Datasets',
+#             'performance_comparison_frequency.png'
+#         )
+    
+    # Other datasets plot
+    if other_indices:
+        other_datasets = [dataset_names[i] for i in other_indices]
+        other_accuracies = accuracy_matrix[other_indices, :]
+        create_comparison_plot(
+            other_datasets, 
+            model_names, 
+            other_accuracies,
+            'Other Datasets',
+            'performance_comparison_other.png'
+        )
+
+if __name__ == "__main__":
+    results = read_results('model_results.json')
+    dataset_names, model_names, accuracy_matrix = prepare_data(results)
+    
+    print("Analyzed datasets:", dataset_names)
+    print("Evaluated models:", model_names)
+    print("Accuracy matrix:\n", accuracy_matrix)
+    
+    create_separate_plots(dataset_names, model_names, accuracy_matrix)
+# -
 
 
