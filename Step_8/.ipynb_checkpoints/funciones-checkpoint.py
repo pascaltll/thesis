@@ -372,6 +372,167 @@ class DatasetCreator:
         test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
         return {'train_loader': train_loader, 'test_loader': test_loader}
 
+class ZeroShotConfig:
+    def __init__(self,
+                 model_name,
+                 candidate_labels=["жанр0", "жанр1"],
+                 hypothesis_template="Este texto es sobre {}."):
+        self.model_name = model_name
+        self.candidate_labels = candidate_labels
+        self.hypothesis_template = hypothesis_template
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def zero_shot_evaluate(config, test_loader, tokenizer):
+    # Cargar el pipeline de zero-shot
+    classifier = pipeline(
+        "zero-shot-classification",
+        model=config.model_name,
+        device=config.device
+    )
+    
+    all_true_labels = []
+    all_preds = []
+    all_probs = []
+    
+    # Procesar el test_loader
+    for batch in test_loader:
+        texts = [tokenizer.decode(ids, skip_special_tokens=True) 
+                for ids in batch['input_ids']]
+        true_labels = batch['labels'].cpu().numpy()
+        
+        # Clasificación zero-shot
+        results = classifier(
+            texts,
+            candidate_labels=config.candidate_labels,
+            hypothesis_template=config.hypothesis_template
+        )
+        
+        # Procesar resultados
+        for result, true_label in zip(results, true_labels):
+            pred_label = config.candidate_labels.index(result['labels'][0])
+            prob = result['scores'][0]
+            
+            all_true_labels.append(true_label)
+            all_preds.append(pred_label)
+            all_probs.append(prob)
+    
+    # Convertir a arrays numpy
+    all_true_labels = np.array(all_true_labels)
+    all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
+    
+    # Calcular métricas (igual que en tu evaluate_model)
+    accuracy = np.mean(all_preds == all_true_labels)
+    report = classification_report(all_true_labels, all_preds, 
+                                  target_names=config.candidate_labels, output_dict=True)
+    conf_matrix = confusion_matrix(all_true_labels, all_preds)
+    roc_auc = roc_auc_score(all_true_labels, all_probs)
+    pr_auc = average_precision_score(all_true_labels, all_probs)
+    log_loss_val = log_loss(all_true_labels, all_probs)
+    
+    return {
+        "accuracy": accuracy,
+        "f1_weighted": report['weighted avg']['f1-score'],
+        "f1_macro": report['macro avg']['f1-score'],
+        "f1_class0": report[config.candidate_labels[0]]['f1-score'],
+        "f1_class1": report[config.candidate_labels[1]]['f1-score'],
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc,
+        "log_loss": log_loss_val,
+        "report": report,
+        "conf_matrix": conf_matrix,
+        "predictions": all_preds.tolist(),
+        "true_labels": all_true_labels.tolist(),
+        "probs": all_probs.tolist()
+    }
+
+
+def train_and_evaluate_zero_shot(path1, path2, config, dataset_name, dataset_type):
+    seeds = list(range(config.num_repeats))
+    metrics = {
+        'accuracies': [],
+        'f1_weighteds': [],
+        'f1_macros': [],
+        'f1_class0s': [],
+        'f1_class1s': [],
+        'roc_aucs': [],
+        'pr_aucs': [],
+        'log_losses': [],
+        'confusion_matrices': []
+    }
+    
+    for seed in seeds:
+        # Pipeline común (igual que antes para preparar los datos)
+        ppl = PipelineCommon([
+            (DataLoader_raw(path1, path2), [], {'datos_raw': 'datos_raw', 'original_datos_raw': 'original_datos_raw'}),
+            (SentenceSplitterAndCleaner(config.tokenizer), ['datos_raw', 'original_datos_raw'], 
+             {'datos_procesados': 'datos_procesados', 'original_datos_procesados': 'original_datos_procesados'}),
+            (DataProcessor(config.tokenizer, config.max_length, seed, name=dataset_name, 
+                           threshold=config.threshold, model_type=config.model_type), 
+             ['datos_procesados', 'original_datos_procesados'], 
+             {'train_encodings': 'train_encodings', 'train_labels': 'train_labels',
+              'test_encodings': 'test_encodings', 'test_labels': 'test_labels'}),
+            (DatasetCreator(batch_size=config.batch_size), 
+             ['train_encodings', 'train_labels', 'test_encodings', 'test_labels'], 
+             {'train_loader': 'train_loader', 'test_loader': 'test_loader'})
+        ])
+        
+        result = ppl()
+        test_loader = result['test_loader']
+        
+        # Configuración Zero-Shot
+        zs_config = ZeroShotConfig(
+            model_name=config.model_name,
+            candidate_labels=["жанр0", "жанр1"],
+            hypothesis_template="Este fragmento literario pertenece al género {}."
+        )
+        
+        # Evaluación Zero-Shot
+        results = zero_shot_evaluate(zs_config, test_loader, config.tokenizer)
+        
+        # Acumular métricas
+        metrics['accuracies'].append(results['accuracy'])
+        metrics['f1_weighteds'].append(results['f1_weighted'])
+        metrics['f1_macros'].append(results['f1_macro'])
+        metrics['f1_class0s'].append(results['f1_class0'])
+        metrics['f1_class1s'].append(results['f1_class1'])
+        metrics['roc_aucs'].append(results['roc_auc'])
+        metrics['pr_aucs'].append(results['pr_auc'])
+        metrics['log_losses'].append(results['log_loss'])
+        metrics['confusion_matrices'].append(results['conf_matrix'])
+    
+    # Calcular promedios
+    avg_conf_matrix = np.mean(metrics['confusion_matrices'], axis=0)
+    
+    return {
+        'dataset_name': dataset_name,
+        'dataset_type': dataset_type,
+        'model_name': config.model_name,
+        'avg_accuracy': float(np.mean(metrics['accuracies'])),
+        'std_accuracy': float(np.std(metrics['accuracies'])),
+        'avg_f1_weighted': float(np.mean(metrics['f1_weighteds'])),
+        'std_f1_weighted': float(np.std(metrics['f1_weighteds'])),
+        'avg_f1_macro': float(np.mean(metrics['f1_macros'])),
+        'std_f1_macro': float(np.std(metrics['f1_macros'])),
+        'avg_f1_class0': float(np.mean(metrics['f1_class0s'])),
+        'std_f1_class0': float(np.std(metrics['f1_class0s'])),
+        'avg_f1_class1': float(np.mean(metrics['f1_class1s'])),
+        'std_f1_class1': float(np.std(metrics['f1_class1s'])),
+        'avg_roc_auc': float(np.mean(metrics['roc_aucs'])),
+        'std_roc_auc': float(np.std(metrics['roc_aucs'])),
+        'avg_pr_auc': float(np.mean(metrics['pr_aucs'])),
+        'std_pr_auc': float(np.std(metrics['pr_aucs'])),
+        'avg_log_loss': float(np.mean(metrics['log_losses'])),
+        'std_log_loss': float(np.std(metrics['log_losses'])),
+        'avg_confusion_matrix': avg_conf_matrix.tolist(),
+        'confusion_matrices': [cm.tolist() for cm in metrics['confusion_matrices']],
+        'type': 'zero-shot',
+        'true_labels': results['true_labels'],
+        'predictions': results['predictions']
+    }
+
+
 def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3, 
                 model_type='bert', dataset_name=None, model_name=None, classifier=None):
     """
@@ -509,6 +670,9 @@ def evaluate_model(model, test_loader, device, tokenizer, model_type='bert', cla
     pr_auc = average_precision_score(all_labels, all_probs[:, 1])
     log_loss_val = log_loss(all_labels, all_probs)
     
+    torch.cuda.empty_cache()
+    gc.collect()
+    
     return {
         "accuracy": accuracy,
         "f1_weighted": report['weighted avg']['f1-score'],
@@ -526,8 +690,7 @@ def evaluate_model(model, test_loader, device, tokenizer, model_type='bert', cla
     }
 
 
-# -
-
+# +
 def train_and_evaluate_dataset(path1, path2, config, dataset_name, dataset_type):
     seeds = list(range(config.num_repeats))
     accuracies = []
@@ -539,6 +702,7 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name, dataset_type)
     pr_aucs = []
     log_losses = []
     losses = []
+    confusion_matrices = []
     
     for seed in seeds:
         # Pipeline común
@@ -589,286 +753,92 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name, dataset_type)
         roc_aucs.append(results['roc_auc'])
         pr_aucs.append(results['pr_auc'])
         log_losses.append(results['log_loss'])
+        confusion_matrices.append(results['conf_matrix'])  # Store confusion matrix
         
-        # Opcional: Log en WandB
-        # import wandb
-        # wandb.log({
-        #     "seed": seed,
-        #     "accuracy": results['accuracy'],
-        #     "f1_weighted": results['f1_weighted'],
-        #     "f1_macro": results['f1_macro'],
-        #     "f1_class0": results['f1_class0'],
-        #     "f1_class1": results['f1_class1'],
-        #     "roc_auc": results['roc_auc'],
-        #     "pr_auc": results['pr_auc'],
-        #     "log_loss": results['log_loss'],
-        #     "train_loss": final_loss,
-        #     "confusion_matrix": wandb.plot.confusion_matrix(
-        #         y_true=results['true_labels'], 
-        #         preds=results['predictions'], 
-        #         class_names=["жанр0", "жанр1"]
-        #     )
-        # })
-    
+
+        
+
+
+    avg_confusion_matrix = np.mean(confusion_matrices, axis=0)
+    if classifier is not None:
+        del classifier
+    torch.cuda.empty_cache()
+    gc.collect()
+
+#     return {
+#         'dataset_name': dataset_name,
+#         'dataset_type': dataset_type,
+#         'model_name': config.model_name,
+#         'avg_accuracy': np.mean(accuracies),
+#         'std_accuracy': np.std(accuracies),
+#         'avg_f1_weighted': np.mean(f1_weighteds),
+#         'std_f1_weighted': np.std(f1_weighteds),
+#         'avg_f1_macro': np.mean(f1_macros),
+#         'std_f1_macro': np.std(f1_macros),
+#         'avg_f1_class0': np.mean(f1_class0s),
+#         'std_f1_class0': np.std(f1_class0s),
+#         'avg_f1_class1': np.mean(f1_class1s),
+#         'std_f1_class1': np.std(f1_class1s),
+#         'avg_roc_auc': np.mean(roc_aucs),
+#         'std_roc_auc': np.std(roc_aucs),
+#         'avg_pr_auc': np.mean(pr_aucs),
+#         'std_pr_auc': np.std(pr_aucs),
+#         'avg_log_loss': np.mean(log_losses),
+#         'std_log_loss': np.std(log_losses),
+#         'avg_loss': np.mean(losses),
+#         'accuracies': accuracies,
+#         'f1_weighteds': f1_weighteds,
+#         'f1_macros': f1_macros,
+#         'f1_class0s': f1_class0s,
+#         'f1_class1s': f1_class1s,
+#         'roc_aucs': roc_aucs,
+#         'pr_aucs': pr_aucs,
+#         'log_losses': log_losses,
+#         'losses': losses,
+#         'avg_confusion_matrix': avg_confusion_matrix,  # Add average confusion matrix
+#         'confusion_matrices': confusion_matrices,  # Include all confusion matrices
+#         'type': 'gpt' if config.model_type == 'gpt' else 'bert',
+#         'true_labels': results['true_labels'],
+#         'predictions': results['predictions']
+#     }
     return {
         'dataset_name': dataset_name,
         'dataset_type': dataset_type,
         'model_name': config.model_name,
-        'avg_accuracy': np.mean(accuracies),
-        'std_accuracy': np.std(accuracies),
-        'avg_f1_weighted': np.mean(f1_weighteds),
-        'std_f1_weighted': np.std(f1_weighteds),
-        'avg_f1_macro': np.mean(f1_macros),
-        'std_f1_macro': np.std(f1_macros),
-        'avg_f1_class0': np.mean(f1_class0s),
-        'std_f1_class0': np.std(f1_class0s),
-        'avg_f1_class1': np.mean(f1_class1s),
-        'std_f1_class1': np.std(f1_class1s),
-        'avg_roc_auc': np.mean(roc_aucs),
-        'std_roc_auc': np.std(roc_aucs),
-        'avg_pr_auc': np.mean(pr_aucs),
-        'std_pr_auc': np.std(pr_aucs),
-        'avg_log_loss': np.mean(log_losses),
-        'std_log_loss': np.std(log_losses),
-        'avg_loss': np.mean(losses),
-        'accuracies': accuracies,
-        'f1_weighteds': f1_weighteds,
-        'f1_macros': f1_macros,
-        'f1_class0s': f1_class0s,
-        'f1_class1s': f1_class1s,
-        'roc_aucs': roc_aucs,
-        'pr_aucs': pr_aucs,
-        'log_losses': log_losses,
-        'losses': losses,
+        'avg_accuracy': float(np.mean(accuracies)),
+        'std_accuracy': float(np.std(accuracies)),
+        'avg_f1_weighted': float(np.mean(f1_weighteds)),
+        'std_f1_weighted': float(np.std(f1_weighteds)),
+        'avg_f1_macro': float(np.mean(f1_macros)),
+        'std_f1_macro': float(np.std(f1_macros)),
+        'avg_f1_class0': float(np.mean(f1_class0s)),
+        'std_f1_class0': float(np.std(f1_class0s)),
+        'avg_f1_class1': float(np.mean(f1_class1s)),
+        'std_f1_class1': float(np.std(f1_class1s)),
+        'avg_roc_auc': float(np.mean(roc_aucs)),
+        'std_roc_auc': float(np.std(roc_aucs)),
+        'avg_pr_auc': float(np.mean(pr_aucs)),
+        'std_pr_auc': float(np.std(pr_aucs)),
+        'avg_log_loss': float(np.mean(log_losses)),
+        'std_log_loss': float(np.std(log_losses)),
+        'avg_loss': float(np.mean(losses)),
+        'accuracies': [float(x) for x in accuracies],
+        'f1_weighteds': [float(x) for x in f1_weighteds],
+        'f1_macros': [float(x) for x in f1_macros],
+        'f1_class0s': [float(x) for x in f1_class0s],
+        'f1_class1s': [float(x) for x in f1_class1s],
+        'roc_aucs': [float(x) for x in roc_aucs],
+        'pr_aucs': [float(x) for x in pr_aucs],
+        'log_losses': [float(x) for x in log_losses],
+        'losses': [float(x) for x in losses],
+        'avg_confusion_matrix': avg_confusion_matrix.tolist(),  # convert ndarray to list
+        'confusion_matrices': [cm.tolist() for cm in confusion_matrices],  # list of ndarrays
         'type': 'gpt' if config.model_type == 'gpt' else 'bert',
-        'true_labels': results['true_labels'],
-        'predictions': results['predictions']
+        'true_labels': results['true_labels'],  # already lists
+        'predictions': results['predictions']   # already lists
     }
 
-
-# +
-def plot_model_performance(datasets, models, results, save_path='frecuencia_profesional.png'):
-    """
-    Genera un gráfico de barras comparando el rendimiento de modelos por dataset.
-    
-    Args:
-        datasets (list): Lista de diccionarios con nombres de datasets (cada uno con clave 'name').
-        models (list): Lista de diccionarios con nombres de modelos (cada uno con clave 'name').
-        results (list): Lista de resultados con 'dataset_name', 'model_name' y 'avg_accuracy'.
-        save_path (str): Ruta donde guardar el gráfico (por defecto 'frecuencia_profesional.png').
-    """
-    # Extraer nombres
-    dataset_names = [d['name'] for d in datasets]
-    model_names = [m['name'] for m in models]
-    
-    # Crear matriz de precisiones
-    accuracies = np.zeros((len(dataset_names), len(model_names)))
-    for i, dataset_name in enumerate(dataset_names):
-        for j, model_name in enumerate(model_names):
-            for result in results:
-                if dataset_name in result['dataset_name'] and model_name in result['dataset_name']:
-                    accuracies[i, j] = result['avg_accuracy']
-                    break  # Salir del bucle una vez encontrada la precisión
-    
-    # Configuración de estilo profesional
-    plt.style.use('seaborn-v0_8')
-    
-    # Crear figura con mayor resolución
-    #fig, ax = plt.subplots(figsize=(16, 8), dpi=100)
-    fig, ax = plt.subplots(figsize=(20, 8), dpi=100)
-    
-    # Parámetros dinámicos según cantidad de modelos
-    n_models = len(model_names)
-    bar_width = min(0.8 / n_models, 0.15)  # Ajustar ancho de barras dinámicamente
-    index = np.arange(len(dataset_names))
-    colors = plt.cm.Set2(np.linspace(0, 1, n_models))  # Paleta de colores profesional
-    
-    # Crear barras con mejoras visuales
-    for i, (model_name, color) in enumerate(zip(model_names, colors)):
-        bars = plt.bar(index + i * bar_width,
-                       accuracies[:, i],
-                       bar_width,
-                       label=model_name,
-                       color=color,
-                       edgecolor='black',
-                       alpha=0.8)
-        
-        # Añadir valores encima de cada barra solo si no hay demasiados modelos
-        if n_models <= 10:  # Límite para evitar clutter
-            for bar in bars:
-                height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height,
-                        f'{height:.3f}',
-                        ha='center', va='bottom', fontsize=9)
-    
-    # Personalización de ejes
-    plt.xlabel('Dataset', fontsize=12, fontweight='bold')
-    plt.ylabel('Precisión Promedio', fontsize=12, fontweight='bold')
-    plt.title('Rendimiento de Modelos por Dataset', fontsize=14, fontweight='bold', pad=20)
-    
-    # Ajustar marcas del eje X
-    plt.xticks(index + bar_width * (n_models - 1) / 2,
-               dataset_names,
-               rotation=45,
-               ha='right',
-               fontsize=10)
-    
-    # Añadir grid
-    plt.grid(True, axis='y', linestyle='--', alpha=0.7)
-    
-    # Mover la leyenda fuera del gráfico
-    plt.legend(title='Modelos',
-               title_fontsize=12,
-               fontsize=10,
-               loc='center left',
-               bbox_to_anchor=(1.05, 0.5),
-               frameon=True,
-               borderaxespad=0.)
-    
-    # Ajustar límites del eje Y
-    plt.ylim(0, max(accuracies.max() * 1.1, 1))
-    
-    # Ajustar layout para incluir la leyenda externa
-    plt.tight_layout()
-    
-    # Guardar con alta calidad
-    plt.savefig(save_path,
-                dpi=300,
-                bbox_inches='tight')
-    
-    # Mostrar gráfico
-    plt.show()
-
-# Ejemplo de uso:
-# datasets = [{'name': 'dataset1'}, {'name': 'dataset2'}]
-# models = [{'name': 'model1'}, {'name': 'model2'}]
-# results = [{'dataset_name': 'dataset1_model1', 'avg_accuracy': 0.85}, ...]
-# plot_model_performance(datasets, models, results, save_path='frecuencia_profesional.png')
-
-
-# +
-import json
-import numpy as np
-import matplotlib.pyplot as plt
-
-def read_results(filename):
-    """Load results from JSON file"""
-    with open(filename, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def prepare_data(results):
-    """Organize data for visualization"""
-    dataset_names = sorted(list(set(item['dataset_name'] for item in results)))
-    model_names = sorted(list(set(item['model_name'] for item in results)))
-    
-    accuracy_matrix = np.zeros((len(dataset_names), len(model_names)))
-    
-    for item in results:
-        dataset_idx = dataset_names.index(item['dataset_name'])
-        model_idx = model_names.index(item['model_name'])
-        accuracy_matrix[dataset_idx, model_idx] = item['avg_accuracy']
-    
-    return dataset_names, model_names, accuracy_matrix
-
-def create_comparison_plot(datasets, models, accuracies, title_suffix, save_path):
-    """Generate a single comparison plot"""
-    plt.style.use('seaborn-v0_8')
-    fig, ax = plt.subplots(figsize=(20, 10), dpi=100)
-    
-    n_models = len(models)
-    bar_width = min(0.8 / n_models, 0.15)
-    index = np.arange(len(datasets))
-    colors = plt.cm.Set2(np.linspace(0, 1, n_models))
-    
-    for i, (model, color) in enumerate(zip(models, colors)):
-        bars = plt.bar(
-            index + i * bar_width,
-            accuracies[:, i],
-            bar_width,
-            label=model,
-            color=color,
-            edgecolor='black',
-            alpha=0.8
-        )
-        
-        if n_models <= 10:
-            for bar in bars:
-                height = bar.get_height()
-                ax.text(
-                    bar.get_x() + bar.get_width()/2., 
-                    height,
-                    f'{height:.3f}',
-                    ha='center', 
-                    va='bottom', 
-                    fontsize=9
-                )
-    
-    plt.xlabel('Dataset', fontsize=12, fontweight='bold')
-    plt.ylabel('Average Accuracy', fontsize=12, fontweight='bold')
-    plt.title(f'Model Performance Comparison ({title_suffix})', fontsize=14, fontweight='bold', pad=20)
-    
-    plt.xticks(
-        index + bar_width * (n_models - 1) / 2,
-        datasets,
-        rotation=45,
-        ha='right',
-        fontsize=10
-    )
-    
-    plt.grid(True, axis='y', linestyle='--', alpha=0.7)
-    plt.legend(
-        title='Models',
-        title_fontsize=12,
-        fontsize=10,
-        loc='center left',
-        bbox_to_anchor=(1.05, 0.5),
-        frameon=True
-    )
-    
-    plt.ylim(0, max(accuracies.max() * 1.1, 1))
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.show()
-
-def create_separate_plots(dataset_names, model_names, accuracy_matrix):
-    """Create two separate plots: frequency-based and other datasets"""
-    # Split datasets into two groups
-    freq_indices = [i for i, name in enumerate(dataset_names) if 'frequenc' in name.lower()]
-    other_indices = [i for i, name in enumerate(dataset_names) if 'frequency' not in name.lower()]
-    
-    # Frequency-based datasets plot
-#     if freq_indices:
-#         freq_datasets = [dataset_names[i] for i in freq_indices]
-#         freq_accuracies = accuracy_matrix[freq_indices, :]
-#         create_comparison_plot(
-#             freq_datasets, 
-#             model_names, 
-#             freq_accuracies,
-#             'Frequency-based Datasets',
-#             'performance_comparison_frequency.png'
-#         )
-    
-    # Other datasets plot
-    if other_indices:
-        other_datasets = [dataset_names[i] for i in other_indices]
-        other_accuracies = accuracy_matrix[other_indices, :]
-        create_comparison_plot(
-            other_datasets, 
-            model_names, 
-            other_accuracies,
-            'Other Datasets',
-            'performance_comparison_other.png'
-        )
-
-if __name__ == "__main__":
-    results = read_results('model_results.json')
-    dataset_names, model_names, accuracy_matrix = prepare_data(results)
-    
-    print("Analyzed datasets:", dataset_names)
-    print("Evaluated models:", model_names)
-    print("Accuracy matrix:\n", accuracy_matrix)
-    
-    create_separate_plots(dataset_names, model_names, accuracy_matrix)
 # -
+
 
 
