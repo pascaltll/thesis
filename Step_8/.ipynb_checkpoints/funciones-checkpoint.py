@@ -520,8 +520,8 @@ def evaluate_model(model, test_loader, device, tokenizer, model_type='bert', cla
         "log_loss": log_loss_val,
         "report": report,
         "conf_matrix": conf_matrix,
-        "predictions": all_preds.tolist(),
-        "true_labels": all_labels.tolist(),
+        "predictions": all_preds.tolist(),  # Should include predictions
+        "true_labels": all_labels.tolist(),  # Should include true_labels
         "probs": all_probs.tolist()
     }
 
@@ -640,7 +640,9 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name, dataset_type)
         'pr_aucs': pr_aucs,
         'log_losses': log_losses,
         'losses': losses,
-        'type': 'gpt' if config.model_type == 'gpt' else 'bert'
+        'type': 'gpt' if config.model_type == 'gpt' else 'bert',
+        'true_labels': results['true_labels'],
+        'predictions': results['predictions']
     }
 
 
