@@ -485,8 +485,7 @@ def train_and_evaluate_zero_shot(path1, path2, config, dataset_name, dataset_typ
         zs_config = ZeroShotConfig(
             model_name=config.model_name,
             candidate_labels=["жанр0", "жанр1"],
-            hypothesis_template="Este fragmento literario pertenece al género {}."
-        )
+            hypothesis_template = "Стилистические особенности этого текста характерны для жанра {}."        )
         
         # Evaluación Zero-Shot
         results = zero_shot_evaluate(zs_config, test_loader, config.tokenizer)
