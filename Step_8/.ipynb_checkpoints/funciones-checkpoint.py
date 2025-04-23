@@ -549,7 +549,7 @@ def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3,
     """
     model.train()
     epoch_losses = []
-    
+    print(f'##########################{model_name}---{model_type}####################')
     for epoch in range(epochs):
         total_loss = 0
         total_batches = 0
