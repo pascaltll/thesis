@@ -1,3 +1,0 @@
-train_Изъяты лексемы с частотой выше 100 - gpt2.csv
-test_Изъяты лексемы с частотой выше 100 - gpt2.csv
-Using pad_token, but it is not set yet.

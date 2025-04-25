@@ -1,10 +1,15 @@
+<!-- #region -->
 # Interpreting the Fine-Tuning Results of Language Models (Transformers)
 Results
 
-![frecuency](Step_8/frecuencia.png)
+**accuracy**
+![accuracy](Step_8/plots/accuracy_by_dataset_type_step_8.png)
 
-![adverbs, verbs](Step_8/partes_discurso.png)
 
+**f1**
+![F1](Step_8/plots/f1_macro_by_dataset_type_step_8.png)
+
+<!-- #endregion -->
 
 ```python
 
