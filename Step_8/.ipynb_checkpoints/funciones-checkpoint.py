@@ -133,10 +133,6 @@ def calcular_similitud_mayoria_optimizado(textos1, textos2, threshold):
 
     similitud = (prop_1_en_2 > threshold) | (prop_2_en_1 > threshold)
 
-
-
-
-
     return similitud
 
 class DataLoader_raw:
@@ -206,7 +202,7 @@ class SentenceSplitterAndCleaner:
         for texto, etiqueta in datos:
             oraciones = self._clean_and_split_text(texto)
             for oracion in oraciones:
-                # Filtrar oraciones cortas basadas en el número de tokens
+                # Filtrar(elimina) oraciones cortas basadas en el número de tokens
                 if len(self.tokenizer.encode(oracion, truncation=False)) >= self.min_length_threshold:
                     target_list.append((oracion, etiqueta))
     
@@ -368,168 +364,16 @@ class DatasetCreator:
     def __call__(self, train_encodings, train_labels, test_encodings, test_labels):
         train_dataset = TextDataset(train_encodings, train_labels)
         test_dataset = TextDataset(test_encodings, test_labels)
+        
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
+        
         return {'train_loader': train_loader, 'test_loader': test_loader}
 
-class ZeroShotConfig:
-    def __init__(self,
-                 model_name,
-                 candidate_labels=["жанр0", "жанр1"],
-                 hypothesis_template="Este texto es sobre {}."):
-        self.model_name = model_name
-        self.candidate_labels = candidate_labels
-        self.hypothesis_template = hypothesis_template
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def zero_shot_evaluate(config, test_loader, tokenizer):
-    # Cargar el pipeline de zero-shot
-    classifier = pipeline(
-        "zero-shot-classification",
-        model=config.model_name,
-        device=config.device
-    )
-    
-    all_true_labels = []
-    all_preds = []
-    all_probs = []
-    
-    # Procesar el test_loader
-    for batch in test_loader:
-        texts = [tokenizer.decode(ids, skip_special_tokens=True) 
-                for ids in batch['input_ids']]
-        true_labels = batch['labels'].cpu().numpy()
-        
-        # Clasificación zero-shot
-        results = classifier(
-            texts,
-            candidate_labels=config.candidate_labels,
-            hypothesis_template=config.hypothesis_template
-        )
-        
-        # Procesar resultados
-        for result, true_label in zip(results, true_labels):
-            pred_label = config.candidate_labels.index(result['labels'][0])
-            prob = result['scores'][0]
-            
-            all_true_labels.append(true_label)
-            all_preds.append(pred_label)
-            all_probs.append(prob)
-    
-    # Convertir a arrays numpy
-    all_true_labels = np.array(all_true_labels)
-    all_preds = np.array(all_preds)
-    all_probs = np.array(all_probs)
-    
-    # Calcular métricas (igual que en tu evaluate_model)
-    accuracy = np.mean(all_preds == all_true_labels)
-    report = classification_report(all_true_labels, all_preds, 
-                                  target_names=config.candidate_labels, output_dict=True)
-    conf_matrix = confusion_matrix(all_true_labels, all_preds)
-    roc_auc = roc_auc_score(all_true_labels, all_probs)
-    pr_auc = average_precision_score(all_true_labels, all_probs)
-    log_loss_val = log_loss(all_true_labels, all_probs)
-    
-    return {
-        "accuracy": accuracy,
-        "f1_weighted": report['weighted avg']['f1-score'],
-        "f1_macro": report['macro avg']['f1-score'],
-        "f1_class0": report[config.candidate_labels[0]]['f1-score'],
-        "f1_class1": report[config.candidate_labels[1]]['f1-score'],
-        "roc_auc": roc_auc,
-        "pr_auc": pr_auc,
-        "log_loss": log_loss_val,
-        "report": report,
-        "conf_matrix": conf_matrix,
-        "predictions": all_preds.tolist(),
-        "true_labels": all_true_labels.tolist(),
-        "probs": all_probs.tolist()
-    }
 
 
-def train_and_evaluate_zero_shot(path1, path2, config, dataset_name, dataset_type):
-    seeds = list(range(config.num_repeats))
-    metrics = {
-        'accuracies': [],
-        'f1_weighteds': [],
-        'f1_macros': [],
-        'f1_class0s': [],
-        'f1_class1s': [],
-        'roc_aucs': [],
-        'pr_aucs': [],
-        'log_losses': [],
-        'confusion_matrices': []
-    }
-    
-    for seed in seeds:
-        # Pipeline común (igual que antes para preparar los datos)
-        ppl = PipelineCommon([
-            (DataLoader_raw(path1, path2), [], {'datos_raw': 'datos_raw', 'original_datos_raw': 'original_datos_raw'}),
-            (SentenceSplitterAndCleaner(config.tokenizer), ['datos_raw', 'original_datos_raw'], 
-             {'datos_procesados': 'datos_procesados', 'original_datos_procesados': 'original_datos_procesados'}),
-            (DataProcessor(config.tokenizer, config.max_length, seed, name=dataset_name, 
-                           threshold=config.threshold, model_type=config.model_type), 
-             ['datos_procesados', 'original_datos_procesados'], 
-             {'train_encodings': 'train_encodings', 'train_labels': 'train_labels',
-              'test_encodings': 'test_encodings', 'test_labels': 'test_labels'}),
-            (DatasetCreator(batch_size=config.batch_size), 
-             ['train_encodings', 'train_labels', 'test_encodings', 'test_labels'], 
-             {'train_loader': 'train_loader', 'test_loader': 'test_loader'})
-        ])
-        
-        result = ppl()
-        test_loader = result['test_loader']
-        
-        # Configuración Zero-Shot
-        zs_config = ZeroShotConfig(
-            model_name=config.model_name,
-            candidate_labels=["жанр0", "жанр1"],
-            hypothesis_template = "Стилистические особенности этого текста характерны для жанра {}."        )
-        
-        # Evaluación Zero-Shot
-        results = zero_shot_evaluate(zs_config, test_loader, config.tokenizer)
-        
-        # Acumular métricas
-        metrics['accuracies'].append(results['accuracy'])
-        metrics['f1_weighteds'].append(results['f1_weighted'])
-        metrics['f1_macros'].append(results['f1_macro'])
-        metrics['f1_class0s'].append(results['f1_class0'])
-        metrics['f1_class1s'].append(results['f1_class1'])
-        metrics['roc_aucs'].append(results['roc_auc'])
-        metrics['pr_aucs'].append(results['pr_auc'])
-        metrics['log_losses'].append(results['log_loss'])
-        metrics['confusion_matrices'].append(results['conf_matrix'])
-    
-    # Calcular promedios
-    avg_conf_matrix = np.mean(metrics['confusion_matrices'], axis=0)
-    
-    return {
-        'dataset_name': dataset_name,
-        'dataset_type': dataset_type,
-        'model_name': config.model_name,
-        'avg_accuracy': float(np.mean(metrics['accuracies'])),
-        'std_accuracy': float(np.std(metrics['accuracies'])),
-        'avg_f1_weighted': float(np.mean(metrics['f1_weighteds'])),
-        'std_f1_weighted': float(np.std(metrics['f1_weighteds'])),
-        'avg_f1_macro': float(np.mean(metrics['f1_macros'])),
-        'std_f1_macro': float(np.std(metrics['f1_macros'])),
-        'avg_f1_class0': float(np.mean(metrics['f1_class0s'])),
-        'std_f1_class0': float(np.std(metrics['f1_class0s'])),
-        'avg_f1_class1': float(np.mean(metrics['f1_class1s'])),
-        'std_f1_class1': float(np.std(metrics['f1_class1s'])),
-        'avg_roc_auc': float(np.mean(metrics['roc_aucs'])),
-        'std_roc_auc': float(np.std(metrics['roc_aucs'])),
-        'avg_pr_auc': float(np.mean(metrics['pr_aucs'])),
-        'std_pr_auc': float(np.std(metrics['pr_aucs'])),
-        'avg_log_loss': float(np.mean(metrics['log_losses'])),
-        'std_log_loss': float(np.std(metrics['log_losses'])),
-        'avg_confusion_matrix': avg_conf_matrix.tolist(),
-        'confusion_matrices': [cm.tolist() for cm in metrics['confusion_matrices']],
-        'type': 'zero-shot',
-        'true_labels': results['true_labels'],
-        'predictions': results['predictions']
-    }
 
 
 def train_model(model, train_loader, optimizer, loss_fn, device, epochs=3, 
@@ -837,7 +681,173 @@ def train_and_evaluate_dataset(path1, path2, config, dataset_name, dataset_type)
         'predictions': results['predictions']   # already lists
     }
 
+# +
+### zero shot PART
 # -
 
+class ZeroShotConfig:
+    def __init__(self,
+                 model_name,
+                 candidate_labels=["жанр0", "жанр1"],
+                 hypothesis_template="Este texto es sobre {}."):
+        self.model_name = model_name
+        self.candidate_labels = candidate_labels
+        self.hypothesis_template = hypothesis_template
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def zero_shot_evaluate(config, test_loader, tokenizer):
+    # Cargar el pipeline de zero-shot
+    classifier = pipeline(
+        "zero-shot-classification",
+        model=config.model_name,
+        device=config.device
+    )
+    
+    all_true_labels = []
+    all_preds = []
+    all_probs = []
+    
+    # Procesar el test_loader
+    for batch in test_loader:
+        texts = [tokenizer.decode(ids, skip_special_tokens=True) 
+                for ids in batch['input_ids']]
+        true_labels = batch['labels'].cpu().numpy()
+        
+        # Clasificación zero-shot
+        results = classifier(
+            texts,
+            candidate_labels=config.candidate_labels,
+            hypothesis_template=config.hypothesis_template
+        )
+        
+        # Procesar resultados
+        for result, true_label in zip(results, true_labels):
+            pred_label = config.candidate_labels.index(result['labels'][0])
+            prob = result['scores'][0]
+            
+            all_true_labels.append(true_label)
+            all_preds.append(pred_label)
+            all_probs.append(prob)
+    
+    # Convertir a arrays numpy
+    all_true_labels = np.array(all_true_labels)
+    all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
+    
+    # Calcular métricas (igual que en tu evaluate_model)
+    accuracy = np.mean(all_preds == all_true_labels)
+    report = classification_report(all_true_labels, all_preds, 
+                                  target_names=config.candidate_labels, output_dict=True)
+    conf_matrix = confusion_matrix(all_true_labels, all_preds)
+    roc_auc = roc_auc_score(all_true_labels, all_probs)
+    pr_auc = average_precision_score(all_true_labels, all_probs)
+    log_loss_val = log_loss(all_true_labels, all_probs)
+    
+    return {
+        "accuracy": accuracy,
+        "f1_weighted": report['weighted avg']['f1-score'],
+        "f1_macro": report['macro avg']['f1-score'],
+        "f1_class0": report[config.candidate_labels[0]]['f1-score'],
+        "f1_class1": report[config.candidate_labels[1]]['f1-score'],
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc,
+        "log_loss": log_loss_val,
+        "report": report,
+        "conf_matrix": conf_matrix,
+        "predictions": all_preds.tolist(),
+        "true_labels": all_true_labels.tolist(),
+        "probs": all_probs.tolist()
+    }
+
+
+def zero_shot(path1, path2, config, dataset_name, dataset_type):
+    seeds = list(range(config.num_repeats))
+    metrics = {
+        'accuracies': [],
+        'f1_weighteds': [],
+        'f1_macros': [],
+        'f1_class0s': [],
+        'f1_class1s': [],
+        'roc_aucs': [],
+        'pr_aucs': [],
+        'log_losses': [],
+        'confusion_matrices': []
+    }
+    
+    for seed in seeds:
+        # Pipeline común (igual que antes para preparar los datos)
+        ppl = PipelineCommon([
+            (DataLoader_raw(path1, path2), [], {'datos_raw': 'datos_raw', 'original_datos_raw': 'original_datos_raw'}),
+            (SentenceSplitterAndCleaner(config.tokenizer), ['datos_raw', 'original_datos_raw'], 
+             {'datos_procesados': 'datos_procesados', 'original_datos_procesados': 'original_datos_procesados'}),
+            (DataProcessor(config.tokenizer, config.max_length, seed, name=dataset_name, 
+                           threshold=config.threshold, model_type=config.model_type), 
+             ['datos_procesados', 'original_datos_procesados'], 
+             {'train_encodings': 'train_encodings', 'train_labels': 'train_labels',
+              'test_encodings': 'test_encodings', 'test_labels': 'test_labels'}),
+            (DatasetCreator(batch_size=config.batch_size), 
+             ['train_encodings', 'train_labels', 'test_encodings', 'test_labels'], 
+             {'train_loader': 'train_loader', 'test_loader': 'test_loader'})
+        ])
+        
+        #del pipelin que necesutmos
+        #data loades - si
+        #slpit and clean - si (mejorable con zantza quiza)
+        #data procesor -crea el nuevo test sin interseciones - no
+        #data creatos-tokeniza el set - no 
+        
+        result = ppl()
+        test_loader = result['test_loader']
+        
+        # Configuración Zero-Shot
+        zs_config = ZeroShotConfig(
+            model_name=config.model_name,
+            candidate_labels=["жанр0", "жанр1"],#deficicion - descripcion
+            hypothesis_template = "Стилистические особенности этого текста характерны для жанра {}."        )
+        
+        # Evaluación Zero-Shot
+        results = zero_shot_evaluate(zs_config, test_loader, config.tokenizer)
+        
+        # Acumular métricas
+        metrics['accuracies'].append(results['accuracy'])
+        metrics['f1_weighteds'].append(results['f1_weighted'])
+        metrics['f1_macros'].append(results['f1_macro'])
+        metrics['f1_class0s'].append(results['f1_class0'])
+        metrics['f1_class1s'].append(results['f1_class1'])
+        metrics['roc_aucs'].append(results['roc_auc'])
+        metrics['pr_aucs'].append(results['pr_auc'])
+        metrics['log_losses'].append(results['log_loss'])
+        metrics['confusion_matrices'].append(results['conf_matrix'])
+    
+    # Calcular promedios
+    avg_conf_matrix = np.mean(metrics['confusion_matrices'], axis=0)
+    
+    return {
+        'dataset_name': dataset_name,
+        'dataset_type': dataset_type,
+        'model_name': config.model_name,
+        'avg_accuracy': float(np.mean(metrics['accuracies'])),
+        'std_accuracy': float(np.std(metrics['accuracies'])),
+        'avg_f1_weighted': float(np.mean(metrics['f1_weighteds'])),
+        'std_f1_weighted': float(np.std(metrics['f1_weighteds'])),
+        'avg_f1_macro': float(np.mean(metrics['f1_macros'])),
+        'std_f1_macro': float(np.std(metrics['f1_macros'])),
+        'avg_f1_class0': float(np.mean(metrics['f1_class0s'])),
+        'std_f1_class0': float(np.std(metrics['f1_class0s'])),
+        'avg_f1_class1': float(np.mean(metrics['f1_class1s'])),
+        'std_f1_class1': float(np.std(metrics['f1_class1s'])),
+        'avg_roc_auc': float(np.mean(metrics['roc_aucs'])),
+        'std_roc_auc': float(np.std(metrics['roc_aucs'])),
+        'avg_pr_auc': float(np.mean(metrics['pr_aucs'])),
+        'std_pr_auc': float(np.std(metrics['pr_aucs'])),
+        'avg_log_loss': float(np.mean(metrics['log_losses'])),
+        'std_log_loss': float(np.std(metrics['log_losses'])),
+        'avg_confusion_matrix': avg_conf_matrix.tolist(),
+        'confusion_matrices': [cm.tolist() for cm in metrics['confusion_matrices']],
+        'type': 'zero-shot',
+        'true_labels': results['true_labels'],
+        'predictions': results['predictions']
+    }
 
 
