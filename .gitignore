@@ -1,0 +1,51 @@
+Perfecto. Gracias por la actualización de la estructura de archivos. Parece que has hecho una buena limpieza manual, ¡eso ayuda mucho!
+
+Ahora, con la estructura actual y tus nuevas peticiones, vamos a refinar el archivo .gitignore para asegurarnos de que todo lo que no quieres versionar se ignore correctamente.
+
+.gitignore Actualizado
+Basándonos en la estructura de archivos que me mostraste y tus últimas solicitudes, aquí tienes la nueva versión de tu archivo .gitignore:
+
+# Python specific
+__pycache__/
+*.pyc
+
+# Jupyter Notebook files
+.ipynb_checkpoints/
+Untitled*.ipynb  # Ignora Untitled.ipynb, Untitled1.ipynb, etc.
+
+# ==============================================================
+# Archivos y Carpetas Grandes o de Resultados/Generados
+# ==============================================================
+
+# Archivo 'core' (sigue siendo grande, por lo que lo ignoramos)
+core
+
+# Carpeta 'plots' (contiene resultados visuales y tablas)
+plots/
+
+# Archivos de log
+*.log
+
+# Archivos de resultados JSON
+resultados_Step_8.json
+zero_shot_results.json
+
+# ==============================================================
+# Archivos específicos que quieres ignorar
+# ==============================================================
+
+# Notebook de plot que es probable que genere los gráficos
+plot.ipynb
+
+# Archivo de log de confusión de matrices
+plot_confusion_matrices.log
+
+# ==============================================================
+# Otros archivos que podrían ser generados o temporales
+# ==============================================================
+
+# Si tienes archivos de modelos guardados (ej. .bin, .pt, .h5, etc.):
+# *.bin
+# *.pt
+# *.h5
+# models/ # Si tienes una carpeta para modelos guardados
